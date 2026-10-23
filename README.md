@@ -19,6 +19,17 @@ python3 -m http.server 8000   # puis http://localhost:8000
 - Génération de pièces « juste » : au moins une pièce posable, pièce de secours quand la grille est pleine
 - Modes **Aventure** (objectif de lignes, blocs de pierre et gemmes pré-placés) et **Classique** (score infini + records)
 
+## Rétention (v3)
+- **Rangs** Bois → Bronze → Argent → Or → Platine → Diamant → Maître → Légende, barre d'XP animée après chaque partie
+- **Coffre mystère** toutes les 3 parties (chances affichées : 60 / 28 / 10 / 2 %)
+- **Série quotidienne** sur 7 jours (20 → 300 pièces), remise à zéro si un jour est manqué
+- **Défi du jour** : graine fixe, mêmes pièces pour tous, pas d'annulation ni de relance, bouton « Défier mes amis »
+- **Presque !** : la case qui manque pour finir une ligne clignote en doré
+- **Danger** : grille pleine à 66 % → battements de cœur + bord rouge
+- **Objectif visible** : barre vers le record pendant la partie, « Plus que X pts » à la fin
+- Premières parties assistées pour vivre de grosses explosions tout de suite
+- Aucune manipulation cachée : pas de main truquée, difficulté identique pour tous
+
 ## Effets & son (100 % générés, aucun fichier audio)
 - Particules (éclats, étincelles, ondes de choc, rayons laser sur les lignes), tremblement d'écran, flash
 - Textes « Super ! / Génial ! / Incroyable ! / LÉGENDAIRE ! », score qui défile, pièces qui volent jusqu'au compteur

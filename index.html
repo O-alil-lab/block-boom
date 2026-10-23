@@ -129,7 +129,34 @@ h2{font-size:22px;margin:0}
 .adbadge{align-self:center;background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px}
 #adEmoji{font-size:56px}
 #adCount{font-size:40px;font-weight:700;color:var(--gold)}
-@media (prefers-reduced-motion: reduce){.logo,.recordBanner{animation:none}}
+.rankBox{display:flex;align-items:center;gap:10px;background:rgba(12,16,44,.6);border:1px solid var(--line);border-radius:14px;padding:8px 12px;text-align:left}
+.rankIcon{font-size:30px;line-height:1}
+.rankInfo{flex:1;min-width:0}
+.rankName{font-weight:700;font-size:15px}
+.xpbar{height:9px;background:rgba(0,0,0,.35);border-radius:99px;overflow:hidden;margin-top:4px}
+.xpbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#c1b5ff,#7c4dff);border-radius:99px;transition:width 1.2s cubic-bezier(.2,.9,.3,1);box-shadow:0 0 10px rgba(164,107,255,.7)}
+.rankMeta{font-size:11px;color:var(--muted);margin-top:3px}
+.goal{font-weight:700;color:var(--gold);font-size:16px;min-height:0}
+.goal:empty{display:none}
+.btn.pulse{animation:pulse .7s ease-in-out infinite alternate}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.day{background:rgba(12,16,44,.6);border:1px solid var(--line);border-radius:10px;padding:6px 2px;font-size:11px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px}
+.day b{font-size:12px;color:var(--gold)}
+.day.done{opacity:.4}
+.day.today{border-color:var(--gold);box-shadow:0 0 14px rgba(255,215,94,.55);color:#fff;transform:scale(1.08)}
+.day.big b{font-size:14px}
+.chestBig{font-size:96px;line-height:1.1;cursor:pointer}
+.chestBig.shake{animation:cshake .12s linear infinite}
+@keyframes cshake{25%{transform:rotate(-9deg) scale(1.06)}75%{transform:rotate(9deg) scale(1.06)}}
+.tier{font-size:26px;font-weight:700}
+.odds{font-size:11px;color:var(--muted)}
+.chestPips{display:flex;gap:5px;justify-content:center;align-items:center;font-size:12px;color:var(--muted)}
+.chestPips i{width:24px;height:8px;border-radius:4px;background:rgba(0,0,0,.35)}
+.chestPips i.on{background:linear-gradient(90deg,#ffe27a,#ffb020)}
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:39;opacity:0;transition:opacity .6s;box-shadow:inset 0 0 120px 30px rgba(255,40,70,.5)}
+body.danger #vignette{opacity:1;animation:hb .9s ease-in-out infinite}
+@keyframes hb{0%,100%{opacity:.5}15%{opacity:1}30%{opacity:.6}45%{opacity:.9}}
+@media (prefers-reduced-motion: reduce){.logo,.recordBanner,.btn.pulse,body.danger #vignette{animation:none}}
 </style>
 </head>
 <body>
@@ -164,8 +191,10 @@ h2{font-size:22px;margin:0}
   <div class="overlay show" id="scr-menu"><div class="card">
     <div class="logo"><span>BLOCK</span><span>BOOM</span></div>
     <div class="tag">Glisse · Aligne · Fais tout exploser</div>
+    <div class="rankBox" id="menuRank"></div>
     <button class="btn primary big" id="btnAdv">▶ AVENTURE<small id="advLvl">Niveau 1</small></button>
     <button class="btn cyan big" id="btnClassic">∞ CLASSIQUE<small id="classicBest">Record 0</small></button>
+    <button class="btn pink big" id="btnDaily">📅 DÉFI DU JOUR<small id="dailyInfo">Mêmes pièces pour tout le monde</small></button>
     <div class="btnrow">
       <button class="btn secondary" id="btnShop">🎨 Skins</button>
       <button class="btn secondary" id="btnObj">🏆 Défis<span class="badge" id="objBadge">!</span></button>
@@ -214,6 +243,9 @@ h2{font-size:22px;margin:0}
       • 💎 <b>Gemme</b> : fais-la exploser pour gagner des pièces.<br>
       • 💣 <b>Bombe</b> : elle détruit tout autour d'elle (3×3).<br>
       • Vide toute la grille = <b>GRILLE PARFAITE</b>.<br>
+      • Une case dorée qui clignote = il ne manque plus qu'elle pour finir la ligne !<br>
+      • 📅 <b>Défi du jour</b> : les mêmes pièces pour tous les joueurs du monde. Compare ton score avec tes amis.<br>
+      • Chaque partie te fait monter en <b>rang</b> et remplit ton <b>coffre</b> (1 coffre toutes les 3 parties).<br>
       • La partie s'arrête quand plus aucune pièce ne rentre.
     </div>
     <button class="btn secondary" data-back>← Retour</button>
@@ -225,9 +257,14 @@ h2{font-size:22px;margin:0}
     <div class="muted">Score</div>
     <div class="bigScore" id="goScore">0</div>
     <div class="muted" id="goBest">Record 0</div>
+    <div class="goal" id="goGoal"></div>
+    <div class="rankBox" id="goRank"></div>
+    <div class="chestPips" id="goChest"></div>
+    <button class="btn primary big pulse" id="goChestBtn">🎁 OUVRIR LE COFFRE</button>
+    <button class="btn cyan" id="goShare">📤 Défier mes amis</button>
     <button class="btn pink" id="goAd">📺 Pub → continuer (3 lignes libérées)</button>
     <div class="btnrow">
-      <button class="btn primary" id="goRetry">🔄 Rejouer</button>
+      <button class="btn primary pulse" id="goRetry">🔄 Rejouer</button>
       <button class="btn secondary" id="goMenu">🏠 Menu</button>
     </div>
   </div></div>
@@ -238,6 +275,9 @@ h2{font-size:22px;margin:0}
     <div class="muted">Score</div>
     <div class="bigScore" id="lcScore">0</div>
     <div class="pill coins" style="align-self:center;font-size:20px"><i class="coin"></i><span id="lcReward">+0</span></div>
+    <div class="rankBox" id="lcRank"></div>
+    <div class="chestPips" id="lcChest"></div>
+    <button class="btn primary big pulse" id="lcChestBtn">🎁 OUVRIR LE COFFRE</button>
     <button class="btn pink" id="lcDouble">📺 Doubler la récompense</button>
     <div class="btnrow">
       <button class="btn primary" id="lcNext">▶ Niveau suivant</button>
@@ -252,6 +292,23 @@ h2{font-size:22px;margin:0}
     <button class="btn secondary" id="pauseMenu">🏠 Menu principal</button>
   </div></div>
 
+  <div class="overlay" id="scr-streak"><div class="card">
+    <div style="font-size:48px;line-height:1">🔥</div>
+    <h1>Série : <span id="stDays">1</span> jour<span id="stS"></span></h1>
+    <div class="muted">Reviens chaque jour, les cadeaux grossissent. Si tu rates un jour, la série repart à zéro !</div>
+    <div class="days" id="stGrid"></div>
+    <button class="btn primary big pulse" id="stClaim">Récupérer</button>
+  </div></div>
+
+  <div class="overlay" id="scr-chest"><div class="card">
+    <h1 id="chTitle">Coffre mystère</h1>
+    <div class="chestBig" id="chIcon">🎁</div>
+    <div class="tier" id="chTier">…</div>
+    <div class="muted" id="chText"></div>
+    <div class="odds">Chances : Commun 60 % · Rare 28 % · Épique 10 % · Légendaire 2 %</div>
+    <button class="btn primary" id="chOk" style="display:none">Génial !</button>
+  </div></div>
+
   <div class="overlay" id="scr-ad"><div class="card">
     <div class="adbadge">PUB · DÉMO</div>
     <div id="adEmoji">📦</div>
@@ -262,6 +319,7 @@ h2{font-size:22px;margin:0}
     <div class="muted" style="font-size:12px">En production : remplacer showAd() par AppLovin MAX / AdMob</div>
   </div></div>
 </div>
+<div id="vignette"></div>
 <canvas id="fx"></canvas>
 <div id="flash"></div>
 <div id="toast"></div>
@@ -291,6 +349,12 @@ const LS = (function(){
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
 const rand = n => Math.floor(Math.random()*n);
+// générateur des pièces : aléatoire normal, ou « graine du jour » (mêmes pièces pour tout le monde)
+let prngFn = Math.random;
+const prng = () => prngFn();
+const prand = n => Math.floor(prngFn()*n);
+function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function dailySeed(){ let h = 2166136261; for(const ch of 'bb-' + todayStr()){ h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 const easeOutBack = t => { const c1 = 1.70158, c3 = c1+1; return 1 + c3*Math.pow(t-1,3) + c1*Math.pow(t-1,2); };
 const easeOutCubic = t => 1 - Math.pow(1-t,3);
 function vibrate(p){ try { if(navigator.vibrate) navigator.vibrate(p); } catch(e){} }
@@ -364,23 +428,23 @@ function getRotations(key){
   return (ROT_CACHE[key] = out.map(o=>o.cells));
 }
 function pickShape(){
-  let r = Math.random()*WEIGHT_TOTAL;
+  let r = prng()*WEIGHT_TOTAL;
   for(const k of SHAPE_KEYS){ r -= SHAPE_WEIGHTS[k]; if(r < 0) return k; }
   return 'o2';
 }
-function specialsAllowed(){ return { bomb: mode === 'classic' ? score > 1500 : save.level >= 3 }; }
+function specialsAllowed(){ return { bomb: mode === 'daily' ? true : mode === 'classic' ? score > 1500 : save.level >= 3 }; }
 function makePiece(key, rotIdx){
   key = key || pickShape();
   const rots = getRotations(key);
-  const cells = rots[rotIdx === undefined ? rand(rots.length) : rotIdx];
+  const cells = rots[rotIdx === undefined ? prand(rots.length) : rotIdx];
   const w = Math.max(...cells.map(c=>c[0]))+1, h = Math.max(...cells.map(c=>c[1]))+1;
   const spec = new Array(cells.length).fill(0);
   if(cells.length >= 2){
-    const r = Math.random();
-    if(r < 0.13) spec[rand(cells.length)] = SPEC_GEM;
-    else if(r < 0.21 && specialsAllowed().bomb) spec[rand(cells.length)] = SPEC_BOMB;
+    const r = prng();
+    if(r < 0.13) spec[prand(cells.length)] = SPEC_GEM;
+    else if(r < 0.21 && specialsAllowed().bomb) spec[prand(cells.length)] = SPEC_BOMB;
   }
-  return { key, cells, w, h, color: rand(8), spec };
+  return { key, cells, w, h, color: prand(8), spec };
 }
 function clonePiece(p){ return p ? { key:p.key, cells:p.cells, w:p.w, h:p.h, color:p.color, spec:p.spec.slice() } : null; }
 
@@ -398,7 +462,8 @@ let toastTimer = null, adTimer = null;
 
 function freshSave(){
   return { v:2, coins:0, level:1, best:0, records:[], skins:{classic:true}, skin:'classic', sfx:true, music:true, tutorial:false,
-    stats:{ games:0, lines:0, blocks:0, coinsEarned:0, ads:0, gems:0, bombs:0, perfects:0, maxCombo:0 }, obj:null, adDay:{ d:'', n:0 } };
+    stats:{ games:0, lines:0, blocks:0, coinsEarned:0, ads:0, gems:0, bombs:0, perfects:0, maxCombo:0 }, obj:null, adDay:{ d:'', n:0 },
+    xp:0, chest:0, streak:null, daily:null };
 }
 function loadSave(){
   let s = null;
@@ -605,6 +670,7 @@ const Sound = (function(){
       osc('sine', 110, t+0.6, 1.0, 0.3, sfx, { to:40 }); },
     gray(){ if(!ok() || !throttle('gray', 30)) return; osc('triangle', 300 + Math.random()*120, cur(), 0.04, 0.03, sfx); },
     whoosh(){ if(!ok()) return; noise(cur(), 0.28, 0.08, sfx, { f:500, to:3000, q:1 }); },
+    heart(){ if(!ok() || !throttle('heart', 850)) return; const t = cur(); osc('sine', 62, t, 0.16, 0.4, sfx, { to:40 }); osc('sine', 56, t + 0.2, 0.16, 0.28, sfx, { to:38 }); },
     invalid(){ if(!ok()) return; osc('sawtooth', 140, cur(), 0.15, 0.08, sfx, { lp:700 }); },
     comboLost(){ if(!ok()) return; osc('triangle', 500, cur(), 0.25, 0.06, sfx, { to:250 }); }
   };
@@ -918,6 +984,21 @@ function drawBoard(now){
   }
   const prev = drag && drag.valid ? drag.preview : null;
   const pulse = 0.5 + 0.5*Math.sin(now/90);
+  // « presque ! » : cases qui manquent pour finir une ligne
+  if(running && !grayStart){
+    const holes = new Set();
+    for(let k=0;k<N;k++){
+      let nr = 0, er = -1, nc = 0, ec = -1;
+      for(let j=0;j<N;j++){ if(!grid[k*N + j]){ nr++; er = k*N + j; } if(!grid[j*N + k]){ nc++; ec = j*N + k; } }
+      if(nr === 1) holes.add(er); if(nc === 1) holes.add(ec);
+    }
+    const ha = 0.25 + 0.4*(0.5 + 0.5*Math.sin(now/200));
+    for(const i of holes){
+      const [x, y] = boardCellXY(Math.floor(i/N), i % N);
+      rrect(c, x + cs*0.1, y + cs*0.1, cs*0.8, cs*0.8, cs*0.2);
+      c.strokeStyle = 'rgba(255,215,94,' + ha + ')'; c.lineWidth = Math.max(2, cs*0.06); c.stroke();
+    }
+  }
   // blocs posés
   for(let i=0;i<N*N;i++){
     const v = grid[i];
@@ -1026,15 +1107,21 @@ function rescuePiece(){
   return null;
 }
 function genDock(){
-  const fill = filledCount()/(N*N);
-  let set = null;
-  for(let a=0;a<40;a++){
-    set = [makePiece(), makePiece(), makePiece()];
-    if(fill > 0.4 && Math.random() < 0.7){ const r = rescuePiece(); if(r) set[rand(3)] = r; }
-    if(set.some(fits)) break;
+  if(mode === 'daily'){
+    // Défi du jour : séquence fixe, identique pour tout le monde, aucune aide ni piège
+    dock = [makePiece(), makePiece(), makePiece()];
+  } else {
+    const fill = filledCount()/(N*N);
+    const rookie = save.stats.games <= 2;   // premières parties : on aide à vivre de grosses explosions tout de suite
+    let set = null;
+    for(let a=0;a<40;a++){
+      set = [makePiece(), makePiece(), makePiece()];
+      if((fill > 0.4 && Math.random() < 0.7) || (rookie && fill > 0.12 && Math.random() < 0.85)){ const r = rescuePiece(); if(r) set[rand(3)] = r; }
+      if(set.some(fits)) break;
+    }
+    if(!set.some(fits)) set = [makePiece('s1'), makePiece('d2'), makePiece('c3')];
+    dock = set;
   }
-  if(!set.some(fits)) set = [makePiece('s1'), makePiece('d2'), makePiece('c3')];
-  dock = set;
   const now = performance.now();
   dockSpawn = [now, now + 70, now + 140];
   refreshFits();
@@ -1043,6 +1130,8 @@ function genDock(){
 
 function startRun(newMode){
   if(newMode) mode = newMode;
+  prngFn = mode === 'daily' ? mulberry32(dailySeed()) : Math.random;
+  if(mode === 'daily'){ dailyRef(); save.daily.tries++; }
   Sound.init();
   grid.fill(0); spec.fill(0); popT.fill(0);
   score = 0; shownScore = 0; lines = 0; combo = 0; movesNoClear = 0; runMaxCombo = 0;
@@ -1249,6 +1338,7 @@ function updateIntensity(){
 
 function undo(){
   if(currentScreen !== 'game' || locked || drag) return;
+  if(mode === 'daily'){ toast('Pas d’annulation dans le Défi du jour : même règle pour tous'); Sound.invalid(); return; }
   if(!history.length){ toast('Rien à annuler'); return; }
   if(freeUndo <= 0){
     if(save.coins < 20){ toast('Il faut 20 pièces pour annuler'); Sound.invalid(); return; }
@@ -1272,21 +1362,35 @@ function triggerGameOver(){
   setTimeout(showGameOver, N*N*12 + 500);
 }
 function showGameOver(){
-  const isClassic = mode === 'classic';
-  let rec = false;
+  const isClassic = mode === 'classic', isDaily = mode === 'daily';
+  let rec = false, prevBest = 0;
   if(isClassic){
-    rec = score > save.best;
+    prevBest = save.best; rec = score > save.best && save.best > 0;
     save.best = Math.max(save.best, score);
     save.records.push({ s:score, d:todayStr() });
     save.records.sort((a,b)=>b.s - a.s); save.records = save.records.slice(0, 5);
   }
-  checkObjectives(); saveGame();
-  $('goTitle').textContent = isClassic ? 'Partie terminée' : 'Plus de place !';
+  if(isDaily){ dailyRef(); prevBest = save.daily.best; rec = score > prevBest && prevBest > 0; save.daily.best = Math.max(prevBest, score); }
+  checkObjectives();
+  const xp = gainXp();
+  bumpChest();
+  saveGame();
+  $('goTitle').textContent = isDaily ? 'Défi du jour terminé' : isClassic ? 'Partie terminée' : 'Plus de place !';
   $('goScore').textContent = score.toLocaleString('fr-FR');
-  $('goBest').textContent = isClassic ? 'Record ' + save.best.toLocaleString('fr-FR') : 'Lignes : ' + lines + ' / ' + target;
+  $('goBest').textContent = isClassic ? 'Record ' + save.best.toLocaleString('fr-FR') : isDaily ? 'Ton meilleur score du jour : ' + save.daily.best.toLocaleString('fr-FR') : 'Lignes : ' + lines + ' / ' + target;
+  let goal = '';
+  if(!rec && (isClassic || isDaily) && prevBest > score){
+    const gap = prevBest - score;
+    goal = gap <= prevBest*0.3 ? '😱 Si près ! Plus que ' + gap.toLocaleString('fr-FR') + ' pts pour ton record' : '🎯 Ton record : ' + prevBest.toLocaleString('fr-FR') + ' — tu peux le battre !';
+  } else if(!isClassic && !isDaily){
+    const left = target - lines;
+    goal = left <= 2 ? '😱 Si près ! Plus que ' + left + ' ligne' + (left > 1 ? 's' : '') + ' pour finir le niveau' : '🎯 Encore ' + left + ' lignes pour le niveau ' + save.level;
+  }
+  $('goGoal').textContent = goal;
   $('goRecord').classList.toggle('show', rec);
-  $('goAd').style.display = continued ? 'none' : '';
+  $('goAd').style.display = (continued || isDaily) ? 'none' : '';
   showScreen('scr-gameover');
+  showProgress($('goRank'), $('goChest'), $('goChestBtn'), xp);
   if(rec){ Sound.record(); fireworks(6); }
 }
 function continueRun(){
@@ -1316,7 +1420,9 @@ function levelComplete(){
   lastLevelReward = 30 + 5*done;
   save.level = done + 1;
   save.stats.levels = (save.stats.levels || 0) + 1;
-  checkObjectives(); saveGame();
+  checkObjectives();
+  const xp = gainXp(); bumpChest();
+  saveGame();
   Sound.level(); Sound.setIntensity(1); fireworks(6); vibrate([40, 40, 120]);
   const br = board.getBoundingClientRect();
   floatText('NIVEAU RÉUSSI !', VW/2, br.top + boardPx/2, { size:42, color:'#9cf5c0', max:1.4, rise:20 });
@@ -1326,11 +1432,114 @@ function levelComplete(){
     $('lcReward').textContent = '+' + lastLevelReward;
     $('lcDouble').disabled = false; $('lcDouble').style.display = '';
     showScreen('scr-level');
+    showProgress($('lcRank'), $('lcChest'), $('lcChestBtn'), xp);
     setTimeout(()=> addCoins(lastLevelReward, VW/2, VH/2), 300);
   };
   // interstitiel : jamais avant le niveau 5, puis tous les 3 niveaux
   if(done >= 5 && done % 3 === 0) setTimeout(()=> showAd('interstitial', show), 1300);
   else setTimeout(show, 1300);
+}
+
+/* ============================ RÉTENTION : rangs, coffres, série, défi du jour ============================ */
+const RANKS = [['🪵','Bois',0],['🥉','Bronze I',150],['🥉','Bronze II',350],['🥉','Bronze III',600],['🥈','Argent I',950],['🥈','Argent II',1400],['🥈','Argent III',2000],
+  ['🥇','Or I',2800],['🥇','Or II',3800],['🥇','Or III',5000],['💠','Platine',6500],['💎','Diamant',8500],['👑','Maître',11500],['🌟','Légende',15000]];
+function rankOf(xp){ let i = 0; while(i + 1 < RANKS.length && xp >= RANKS[i+1][2]) i++; return i; }
+function rankPct(xp){ const i = rankOf(xp), nx = RANKS[i+1]; return nx ? (xp - RANKS[i][2])/(nx[2] - RANKS[i][2])*100 : 100; }
+function rankMeta(xp){ const nx = RANKS[rankOf(xp)+1]; return nx ? (nx[2] - xp).toLocaleString('fr-FR') + ' XP avant ' + nx[0] + ' ' + nx[1] : 'Rang maximum atteint !'; }
+function renderRankBox(el, xp, extra){
+  const r = RANKS[rankOf(xp)];
+  el.innerHTML = '<div class="rankIcon">' + r[0] + '</div><div class="rankInfo"><div class="rankName">' + r[1] + (extra ? ' <span style="color:#c1b5ff">' + extra + '</span>' : '') +
+    '</div><div class="xpbar"><i style="width:' + rankPct(xp) + '%"></i></div><div class="rankMeta">' + rankMeta(xp) + '</div></div>';
+}
+function gainXp(){
+  const before = save.xp || 0, g = Math.max(5, Math.round(score/60) + lines*3 + runMaxCombo*5);
+  save.xp = before + g;
+  return { before, after:save.xp, gain:g };
+}
+function showProgress(rankEl, pipsEl, btnEl, xp){
+  renderRankBox(rankEl, xp.before, '+' + xp.gain + ' XP');
+  chestUI(pipsEl, btnEl);
+  setTimeout(()=>{
+    if(rankOf(xp.after) > rankOf(xp.before)){
+      renderRankBox(rankEl, xp.after, '+' + xp.gain + ' XP');
+      const r = RANKS[rankOf(xp.after)];
+      floatText('RANG ' + r[1].toUpperCase() + ' !', VW/2, VH*0.3, { size:36, color:'#c1b5ff', max:1.8, rise:20 });
+      Sound.level(); fireworks(5); vibrate([40, 40, 120]);
+      addCoins(50, VW/2, VH*0.3);
+    } else {
+      const bar = rankEl.querySelector('.xpbar i'); if(bar) bar.style.width = rankPct(xp.after) + '%';
+      const m = rankEl.querySelector('.rankMeta'); if(m) m.textContent = rankMeta(xp.after);
+      Sound.coin();
+    }
+  }, 450);
+}
+function bumpChest(){ save.chest = Math.min(3, (save.chest || 0) + 1); }
+function chestUI(pipsEl, btnEl){
+  const n = save.chest || 0;
+  pipsEl.innerHTML = 'Coffre ' + [0,1,2].map(i => '<i class="' + (i < n ? 'on' : '') + '"></i>').join('') + ' ' + n + '/3';
+  pipsEl.style.display = n >= 3 ? 'none' : '';
+  btnEl.style.display = n >= 3 ? '' : 'none';
+}
+let chestBack = 'gameover';
+function openChest(){
+  if((save.chest || 0) < 3) return;
+  save.chest = 0; saveGame();
+  chestBack = currentScreen;
+  $('chTitle').textContent = 'Coffre mystère'; $('chIcon').textContent = '🎁'; $('chIcon').classList.add('shake');
+  $('chTier').textContent = '…'; $('chTier').style.color = ''; $('chText').textContent = ''; $('chOk').style.display = 'none';
+  showScreen('scr-chest'); Sound.whoosh(); vibrate([20,40,20,40,20]);
+  const iv = setInterval(()=> Sound.snap(), 90);
+  setTimeout(()=>{
+    clearInterval(iv); $('chIcon').classList.remove('shake');
+    const r = Math.random();
+    let tier, color, icon, coins = 0, text = '';
+    const locked = SKIN_ORDER.filter(k => !save.skins[k]);
+    if(r < 0.02){ tier = 'LÉGENDAIRE'; color = '#ffd75e'; icon = '👑';
+      if(locked.length){ const k = locked[rand(locked.length)]; save.skins[k] = true; text = 'Skin débloqué : ' + SKINS[k].name + ' ✨'; } else { coins = 500; }
+    } else if(r < 0.12){ tier = 'ÉPIQUE'; color = '#c1b5ff'; icon = '💎'; coins = 150 + rand(101); }
+    else if(r < 0.40){ tier = 'RARE'; color = '#7fe8ff'; icon = '💰'; coins = 60 + rand(41); }
+    else { tier = 'COMMUN'; color = '#e6e9ff'; icon = '🪙'; coins = 20 + rand(21); }
+    $('chIcon').textContent = icon; $('chTier').textContent = tier; $('chTier').style.color = color;
+    if(coins){ text = '+' + coins + ' pièces'; addCoins(coins, VW/2, VH*0.42); }
+    $('chText').textContent = text; $('chOk').style.display = '';
+    const big = tier !== 'COMMUN' && tier !== 'RARE';
+    flash(big ? 0.6 : 0.3); fireworks(big ? 7 : 2); big ? Sound.perfect() : Sound.level();
+    saveGame();
+  }, 1500);
+}
+function todayKeyOffset(d){ const x = new Date(); x.setDate(x.getDate() + d); return x.getFullYear() + '-' + (x.getMonth()+1) + '-' + x.getDate(); }
+const STREAK_REWARDS = [20, 30, 40, 60, 80, 100, 300];
+function checkStreak(){
+  const t = todayStr(), s = save.streak || { last:'', count:0, claimed:true };
+  if(s.last !== t){ s.count = s.last === todayKeyOffset(-1) ? s.count + 1 : 1; s.last = t; s.claimed = false; }
+  save.streak = s; saveGame();
+  return !s.claimed;
+}
+function showStreak(){
+  const s = save.streak, day = (s.count - 1) % 7;
+  $('stDays').textContent = s.count; $('stS').textContent = s.count > 1 ? 's' : '';
+  $('stGrid').innerHTML = STREAK_REWARDS.map((v,i)=> '<div class="day' + (i < day ? ' done' : '') + (i === day ? ' today' : '') + (i === 6 ? ' big' : '') + '">J' + (i+1) + (i === 6 ? ' 🎁' : '') + '<b>' + v + '</b></div>').join('');
+  $('stClaim').textContent = 'Récupérer ' + STREAK_REWARDS[day] + ' pièces';
+  showScreen('scr-streak');
+}
+function claimStreak(){
+  const s = save.streak, day = (s.count - 1) % 7;
+  if(s.claimed) return;
+  s.claimed = true;
+  addCoins(STREAK_REWARDS[day], VW/2, VH*0.5);
+  Sound.level(); if(day === 6){ fireworks(6); flash(0.4); }
+  saveGame();
+  setTimeout(()=>{ renderMenu(); showScreen('scr-menu'); }, 500);
+}
+function dailyRef(){ if(!save.daily || save.daily.d !== todayStr()) save.daily = { d:todayStr(), best:0, tries:0 }; }
+function shareScore(){
+  const d = new Date(), url = 'https://o-alil-lab.github.io/block-boom/';
+  const head = mode === 'daily' ? '📅 Block Boom — Défi du ' + d.getDate() + '/' + (d.getMonth()+1) : '🧱 Block Boom';
+  const txt = head + '\n🏆 ' + score.toLocaleString('fr-FR') + ' pts · 🔥 combo ×' + runMaxCombo + ' · 💥 ' + lines + ' lignes\n' +
+    (mode === 'daily' ? 'Mêmes pièces pour tout le monde. Tu fais mieux ? 👉 ' : 'Bats mon score 👉 ') + url;
+  if(navigator.share){ navigator.share({ text:txt }).catch(()=>{}); return; }
+  if(navigator.clipboard){ navigator.clipboard.writeText(txt).then(()=> toast('Copié ! Colle-le sur WhatsApp ou TikTok'), ()=> toast(txt)); }
+  else toast(txt);
 }
 
 /* ============================ COINS / ADS ============================ */
@@ -1407,7 +1616,7 @@ function checkObjectives(){
 }
 
 /* ============================ SCREENS ============================ */
-const OVERLAYS = ['scr-menu','scr-shop','scr-obj','scr-rank','scr-stats','scr-guide','scr-gameover','scr-level','scr-pause','scr-ad'];
+const OVERLAYS = ['scr-menu','scr-shop','scr-obj','scr-rank','scr-stats','scr-guide','scr-gameover','scr-level','scr-pause','scr-ad','scr-streak','scr-chest'];
 function showScreen(id){
   OVERLAYS.forEach(o => $(o).classList.toggle('show', o === id));
   currentScreen = id ? id.replace('scr-','') : 'game';
@@ -1426,6 +1635,9 @@ function renderMenu(){
   refreshObjectives();
   $('advLvl').textContent = 'Niveau ' + save.level;
   $('classicBest').textContent = 'Record ' + save.best.toLocaleString('fr-FR');
+  renderRankBox($('menuRank'), save.xp || 0);
+  dailyRef();
+  $('dailyInfo').textContent = save.daily.best ? 'Ton meilleur aujourd’hui : ' + save.daily.best.toLocaleString('fr-FR') : 'Mêmes pièces pour tout le monde';
   $('objBadge').classList.toggle('show', save.obj.items.some(i=>!i.done));
   updateCoinsText();
 }
@@ -1495,15 +1707,22 @@ function bumpEl(el){ el.classList.remove('bump'); void el.offsetWidth; el.classL
 
 /* ============================ HUD ============================ */
 function updateHUD(){
-  $('modePill').textContent = mode === 'adventure' ? 'Niv. ' + save.level : '∞ Classique';
+  $('modePill').textContent = mode === 'adventure' ? 'Niv. ' + save.level : mode === 'daily' ? '📅 Défi du jour' : '∞ Classique';
   updateCoinsText();
   const adv = mode === 'adventure';
-  $('progressWrap').style.display = adv ? '' : 'none';
-  $('bestVal').style.display = adv ? 'none' : '';
-  $('bestVal').textContent = 'Record ' + Math.max(save.best, mode === 'classic' ? score : 0).toLocaleString('fr-FR');
-  $('progressLabel').textContent = Math.min(lines, target) + ' / ' + target + ' lignes';
-  $('progressFill').style.width = (target ? Math.min(100, lines/target*100) : 0) + '%';
-  $('undoCost').textContent = freeUndo > 0 ? 'gratuit' : '20';
+  const recBest = mode === 'daily' ? (save.daily ? save.daily.best : 0) : save.best;
+  $('progressWrap').style.display = (adv || recBest > 0) ? '' : 'none';
+  $('bestVal').style.display = (adv || recBest > 0) ? 'none' : '';
+  $('bestVal').textContent = 'Premier record à établir !';
+  if(adv){
+    $('progressLabel').textContent = Math.min(lines, target) + ' / ' + target + ' lignes';
+    $('progressFill').style.width = (target ? Math.min(100, lines/target*100) : 0) + '%';
+  } else if(recBest > 0){
+    $('progressLabel').textContent = score >= recBest ? '🎉 Record battu ! (' + recBest.toLocaleString('fr-FR') + ')' : 'Record : ' + recBest.toLocaleString('fr-FR') + ' — encore ' + (recBest - score).toLocaleString('fr-FR');
+    $('progressFill').style.width = Math.min(100, score/recBest*100) + '%';
+  }
+  $('undoCost').textContent = mode === 'daily' ? '✕' : freeUndo > 0 ? 'gratuit' : '20';
+  $('undoBtn').classList.toggle('off', mode === 'daily');
   $('musicBtn').classList.toggle('off', !save.music);
   $('sfxBtn').classList.toggle('off', !save.sfx);
   const cb = $('comboBadge');
@@ -1604,6 +1823,13 @@ document.addEventListener('pointerdown', ()=> Sound.init(), true);
 document.addEventListener('touchstart', ()=> Sound.init(), true);
 $('btnAdv').onclick = ()=>{ Sound.init(); startRun('adventure'); };
 $('btnClassic').onclick = ()=>{ Sound.init(); startRun('classic'); };
+$('btnDaily').onclick = ()=>{ Sound.init(); startRun('daily'); };
+$('goChestBtn').onclick = openChest;
+$('lcChestBtn').onclick = openChest;
+$('chIcon').onclick = ()=>{ if($('chIcon').classList.contains('shake')) vibrate(10); };
+$('chOk').onclick = ()=>{ Sound.ui(); showScreen('scr-' + chestBack); chestUI($('goChest'), $('goChestBtn')); chestUI($('lcChest'), $('lcChestBtn')); };
+$('goShare').onclick = shareScore;
+$('stClaim').onclick = ()=>{ Sound.init(); claimStreak(); };
 $('btnShop').onclick = ()=> openSub('scr-shop', renderShop);
 $('btnObj').onclick = ()=> openSub('scr-obj', renderObj);
 $('btnRank').onclick = ()=> openSub('scr-rank', renderRank);
@@ -1639,8 +1865,12 @@ function frame(now){
     shakeAmt *= Math.exp(-dt*9);
   } else if(shakeAmt){ shakeAmt = 0; $('stage').style.transform = ''; }
   if(flashA > 0.01){ $('flash').style.opacity = flashA; flashA *= Math.exp(-dt*7); } else if(flashA){ flashA = 0; $('flash').style.opacity = 0; }
+  const dang = running && currentScreen === 'game' && filledCount() >= N*N*0.66;
+  if(dang !== isDanger){ isDanger = dang; document.body.classList.toggle('danger', dang); }
+  if(dang) Sound.heart();
   drawBg(dt); drawBoard(now); drawDock(now); drawFx(now);
 }
+let isDanger = false;
 
 /* ============================ INIT ============================ */
 function init(){
@@ -1651,6 +1881,7 @@ function init(){
   window.addEventListener('resize', ()=>{ layout(); });
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>{ layout(); });
   renderMenu(); showScreen('scr-menu');
+  if(checkStreak()) setTimeout(showStreak, 350);
   // grille de démo derrière le menu
   [[7,0],[7,1],[7,2],[6,0],[7,5],[7,6],[7,7],[6,7],[5,7]].forEach(([r,c],k)=>{ grid[r*N + c] = (k % 8) + 1; });
   dock = [makePiece('t4',0), makePiece('o2',0), makePiece('cL',0)]; refreshFits();
