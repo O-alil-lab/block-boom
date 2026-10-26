@@ -166,6 +166,15 @@ body.landscape #comboBadge{top:0;padding:4px 8px}
 body.landscape #feverTag{top:0}
 body.landscape #stage{max-width:1100px;flex-direction:row;gap:18px;padding:4px 8px 8px}
 body.landscape #dock{flex-direction:column;gap:4px}
+body.landscape #scr-menu .card{max-width:820px;display:grid;grid-template-columns:1fr 1.15fr;column-gap:18px;row-gap:8px;grid-auto-flow:row dense;align-items:center}
+body.landscape #scr-menu .card>.logo,body.landscape #scr-menu .card>.tag,body.landscape #scr-menu .card>#menuRank{grid-column:1}
+body.landscape #scr-menu .card>.logo{grid-row:1 / span 3}
+body.landscape #scr-menu .card>.tag{grid-row:4}
+body.landscape #scr-menu .card>#menuRank{grid-row:5 / span 2}
+body.landscape #scr-menu .card>button,body.landscape #scr-menu .card>.btnrow{grid-column:2}
+body.landscape .btn.big{padding:10px;font-size:17px}
+body.landscape .card{padding:14px 16px;gap:8px}
+@media (max-height:420px){body.landscape .logo span{font-size:34px} body.landscape .btn{padding:8px 12px;font-size:14px} body.landscape .btn.big{font-size:15px;padding:7px} body.landscape .card{padding:10px 12px;gap:6px} body.landscape .tag{font-size:12px;margin:0}}
 @media (prefers-reduced-motion: reduce){.logo,.recordBanner,.btn.pulse,body.danger #vignette{animation:none}}
 </style>
 </head>
