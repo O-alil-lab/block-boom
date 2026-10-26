@@ -153,6 +153,7 @@ h2{font-size:22px;margin:0}
 .chestPips{display:flex;gap:5px;justify-content:center;align-items:center;font-size:12px;color:var(--muted)}
 .chestPips i{width:24px;height:8px;border-radius:4px;background:rgba(0,0,0,.35)}
 .chestPips i.on{background:linear-gradient(90deg,#ffe27a,#ffb020)}
+body.adbusy::after{content:'';position:fixed;inset:0;z-index:200}
 #vignette{position:fixed;inset:0;pointer-events:none;z-index:39;opacity:0;transition:opacity .6s;box-shadow:inset 0 0 120px 30px rgba(255,40,70,.5)}
 body.danger #vignette{opacity:1;animation:hb .9s ease-in-out infinite}
 @keyframes hb{0%,100%{opacity:.5}15%{opacity:1}30%{opacity:.6}45%{opacity:.9}}
@@ -203,7 +204,10 @@ body.danger #vignette{opacity:1;animation:hb .9s ease-in-out infinite}
       <button class="btn secondary" id="btnRank">🥇 Records</button>
       <button class="btn secondary" id="btnStats">📈 Stats</button>
     </div>
-    <button class="btn secondary" id="btnGuide">❓ Comment jouer</button>
+    <div class="btnrow">
+      <button class="btn secondary" id="btnGuide">❓ Comment jouer</button>
+      <button class="btn secondary" id="btnLang" style="flex:0 0 auto;width:auto">🌐 English</button>
+    </div>
   </div></div>
 
   <div class="overlay" id="scr-shop"><div class="card">
@@ -234,7 +238,7 @@ body.danger #vignette{opacity:1;animation:hb .9s ease-in-out infinite}
 
   <div class="overlay" id="scr-guide"><div class="card">
     <h1>❓ Comment jouer</h1>
-    <div class="guide">
+    <div class="guide" id="guideBody">
       • <b>Glisse</b> une pièce du bas vers la grille et relâche-la.<br>
       • Remplis une <b>ligne ou une colonne</b> entière pour la faire exploser.<br>
       • Plusieurs lignes d'un coup = <b>gros bonus</b>.<br>
@@ -262,9 +266,13 @@ body.danger #vignette{opacity:1;animation:hb .9s ease-in-out infinite}
     <div class="chestPips" id="goChest"></div>
     <button class="btn primary big pulse" id="goChestBtn">🎁 OUVRIR LE COFFRE</button>
     <button class="btn cyan" id="goShare">📤 Défier mes amis</button>
-    <button class="btn pink" id="goAd">📺 Pub → continuer (3 lignes libérées)</button>
+    <div class="muted" id="goContHint">Continuer libère 3 lignes</div>
+    <div class="btnrow" id="goContRow">
+      <button class="btn primary" id="goAd">📺 Continuer</button>
+      <button class="btn primary" id="goCoins">🪙 Continuer (100)</button>
+    </div>
     <div class="btnrow">
-      <button class="btn primary pulse" id="goRetry">🔄 Rejouer</button>
+      <button class="btn primary" id="goRetry">🔄 Rejouer</button>
       <button class="btn secondary" id="goMenu">🏠 Menu</button>
     </div>
   </div></div>
@@ -278,8 +286,7 @@ body.danger #vignette{opacity:1;animation:hb .9s ease-in-out infinite}
     <div class="rankBox" id="lcRank"></div>
     <div class="chestPips" id="lcChest"></div>
     <button class="btn primary big pulse" id="lcChestBtn">🎁 OUVRIR LE COFFRE</button>
-    <button class="btn pink" id="lcDouble">📺 Doubler la récompense</button>
-    <div class="btnrow">
+        <div class="btnrow">
       <button class="btn primary" id="lcNext">▶ Niveau suivant</button>
       <button class="btn secondary" id="lcMenu">🏠</button>
     </div>
@@ -316,7 +323,7 @@ body.danger #vignette{opacity:1;animation:hb .9s ease-in-out infinite}
     <div class="muted" id="adText"></div>
     <div id="adCount">3</div>
     <button class="btn primary" id="adSkip">Regarder…</button>
-    <div class="muted" style="font-size:12px">En production : remplacer showAd() par AppLovin MAX / AdMob</div>
+    <div class="muted" style="font-size:12px">Démo hors CrazyGames : aucune vraie pub ici</div>
   </div></div>
 </div>
 <div id="vignette"></div>
@@ -342,10 +349,111 @@ const $ = id => document.getElementById(id);
 const LS = (function(){
   const mem = {};
   return {
-    get(k){ try { return localStorage.getItem(k); } catch(e){ return mem[k] !== undefined ? mem[k] : null; } },
-    set(k,v){ try { localStorage.setItem(k,v); } catch(e){ mem[k] = v; } }
+    get(k){
+      try { if(window.__cgOn && window.CrazyGames.SDK.data){ const v = window.CrazyGames.SDK.data.getItem(k); if(v !== null && v !== undefined) return v; } } catch(e){}
+      try { return localStorage.getItem(k); } catch(e){ return mem[k] !== undefined ? mem[k] : null; }
+    },
+    set(k,v){
+      try { if(window.__cgOn && window.CrazyGames.SDK.data) window.CrazyGames.SDK.data.setItem(k, v); } catch(e){}
+      try { localStorage.setItem(k,v); } catch(e){ mem[k] = v; }
+    }
   };
 })();
+const EN = {
+ 'Glisse · Aligne · Fais tout exploser':'Drag · Line up · Blow it all up','▶ AVENTURE':'▶ ADVENTURE','∞ CLASSIQUE':'∞ CLASSIC',
+ '📅 DÉFI DU JOUR':'📅 DAILY CHALLENGE','Mêmes pièces pour tout le monde':'Same pieces for everyone','🏆 Défis':'🏆 Quests',
+ '❓ Comment jouer':'❓ How to play','← Retour':'← Back','🏆 Défis du jour':'🏆 Daily quests',
+ '+50 pièces par défi · +200 si les 3 sont terminés':'+50 coins per quest · +200 when all 3 are done','🥇 Tes records':'🥇 Your records',
+ 'Mode Classique — tes 5 meilleures parties':'Classic mode — your 5 best games','📈 Statistiques':'📈 Statistics',
+ 'Plus de place !':'Out of space!','🎉 NOUVEAU RECORD !':'🎉 NEW RECORD!','🎁 OUVRIR LE COFFRE':'🎁 OPEN THE CHEST',
+ '📤 Défier mes amis':'📤 Challenge my friends','📺 Continuer':'📺 Continue','🪙 Continuer (100)':'🪙 Continue (100)',
+ 'Continuer libère 3 lignes':'Continuing clears 3 lines','🔄 Rejouer':'🔄 Play again','NIVEAU':'LEVEL','RÉUSSI !':'COMPLETE!',
+ '▶ Niveau suivant':'▶ Next level','⏸ Pause':'⏸ Paused','▶ Reprendre':'▶ Resume','🔄 Recommencer':'🔄 Restart',
+ '🏠 Menu principal':'🏠 Main menu','Série :':'Streak:','jour':'day',
+ 'Reviens chaque jour, les cadeaux grossissent. Si tu rates un jour, la série repart à zéro !':'Come back every day for bigger gifts. Miss a day and your streak resets!',
+ 'Récupérer':'Claim','Coffre mystère':'Mystery chest','Chances : Commun 60 % · Rare 28 % · Épique 10 % · Légendaire 2 %':'Odds: Common 60% · Rare 28% · Epic 10% · Legendary 2%',
+ 'Génial !':'Awesome!','PUB · DÉMO':'AD · DEMO','Produit':'Product','Regarder…':'Watching…','Démo hors CrazyGames : aucune vraie pub ici':'Demo outside CrazyGames: no real ad here',
+ 'Super !':'Nice!','Incroyable !':'Amazing!','LÉGENDAIRE !':'LEGENDARY!','DIVIN !!':'GODLIKE!!','GRILLE PARFAITE !':'PERFECT CLEAR!',
+ 'NOUVEAU RECORD !':'NEW RECORD!','BOUM !':'BOOM!','Fever terminé — enchaîne pour le relancer !':'Fever over — chain clears to start it again!',
+ 'Pas d’annulation dans le Défi du jour : même règle pour tous':'No undo in the Daily Challenge: same rules for everyone',
+ 'Rien à annuler':'Nothing to undo','Il faut 20 pièces pour annuler':'You need 20 coins to undo','NIVEAU RÉUSSI !':'LEVEL COMPLETE!',
+ 'Bois':'Wood','Argent I':'Silver I','Argent II':'Silver II','Argent III':'Silver III','Or I':'Gold I','Or II':'Gold II','Or III':'Gold III',
+ 'Platine':'Platinum','Diamant':'Diamond','Maître':'Master','Légende':'Legend',
+ '{n} XP avant {r}':'{n} XP to {r}','Rang maximum atteint !':'Max rank reached!','RANG {r} !':'RANK {r}!','Coffre':'Chest',
+ 'LÉGENDAIRE':'LEGENDARY','ÉPIQUE':'EPIC','COMMUN':'COMMON','Skin débloqué : {s}':'Skin unlocked: {s}','+{n} pièces':'+{n} coins',
+ 'J{n}':'D{n}','Récupérer {n} pièces':'Claim {n} coins','Copié ! Colle-le sur WhatsApp ou TikTok':'Copied! Paste it on WhatsApp or TikTok',
+ 'Récupérer la récompense':'Claim reward','Placer {n} blocs':'Place {n} blocks','Faire exploser {n} lignes':'Blast {n} lines',
+ 'Faire {n} points en une partie':'Score {n} points in one game','Jouer {n} parties':'Play {n} games','Atteindre un combo ×{n}':'Reach a ×{n} combo',
+ 'Récolter {n} gemmes':'Collect {n} gems','🏆 Défi terminé : {q} (+50)':'🏆 Quest complete: {q} (+50)','🎉 Tous les défis du jour ! +200':'🎉 All daily quests done! +200',
+ 'Niveau {n}':'Level {n}','Record {n}':'Best {n}','Ton meilleur aujourd’hui : {n}':'Your best today: {n}','Équipé':'Equipped','Acquis':'Owned',
+ '{n} pièces':'{n} coins','Équiper':'Equip','Acheter':'Buy','Il te manque {n} pièces':'You need {n} more coins','📺 Pièces gratuites':'📺 Free coins',
+ '+50 pièces · encore {n} aujourd’hui':'+50 coins · {n} left today','Regarder':'Watch',
+ 'Joue une partie en mode Classique pour inscrire ton premier record !':'Play a Classic game to set your first record!',
+ 'Parties jouées':'Games played','Niveau Aventure':'Adventure level','Record Classique':'Classic best','Blocs posés':'Blocks placed',
+ 'Lignes explosées':'Lines blasted','Meilleur combo':'Best combo','Gemmes récoltées':'Gems collected','Bombes déclenchées':'Bombs triggered',
+ 'Grilles parfaites':'Perfect clears','Pièces gagnées':'Coins earned','Premier record à établir !':'Set your first record!',
+ 'Niv. {n}':'Lvl {n}','📅 Défi du jour':'📅 Daily','∞ Classique':'∞ Classic','{a} / {b} lignes':'{a} / {b} lines',
+ '🎉 Record battu ! ({n})':'🎉 Record beaten! ({n})','Record : {n} — encore {m}':'Best: {n} — {m} to go','gratuit':'free',
+ 'Défi du jour terminé':'Daily Challenge over','Partie terminée':'Game over','Ton meilleur score du jour : {n}':'Your best today: {n}',
+ 'Lignes : {a} / {b}':'Lines: {a} / {b}','😱 Si près ! Plus que {n} pts pour ton record':'😱 So close! Only {n} pts to beat your record',
+ '🎯 Ton record : {n} — tu peux le battre !':'🎯 Your record: {n} — you can beat it!',
+ '😱 Si près ! Plus que {n} ligne pour finir le niveau':'😱 So close! Just {n} line to finish the level',
+ '😱 Si près ! Plus que {n} lignes pour finir le niveau':'😱 So close! Just {n} lines to finish the level',
+ '🎯 Encore {n} lignes pour le niveau {l}':'🎯 {n} more lines to clear level {l}','Aucune pub disponible pour le moment':'No ad available right now',
+ 'Il faut 100 pièces':'You need 100 coins','Prochaine pub dans {n} min':'Next ad in {n} min','🌐 English':'🌐 Français',
+ 'Skin débloqué : ':'Skin unlocked: '
+};
+const GUIDE_EN = '• <b>Drag</b> a piece from the bottom onto the grid and let go.<br>' +
+ '• Fill a whole <b>row or column</b> to blow it up.<br>' +
+ '• Several lines at once = <b>big bonus</b>.<br>' +
+ '• Clear another line within the next <b>3 moves</b> to keep your <b>COMBO</b>.<br>' +
+ '• Combo 5 = <b>FEVER</b>: ×2 points and the music goes wild!<br>' +
+ '• 💎 <b>Gem</b>: blast it to earn coins.<br>' +
+ '• 💣 <b>Bomb</b>: destroys everything around it (3×3).<br>' +
+ '• Empty the whole grid = <b>PERFECT CLEAR</b>.<br>' +
+ '• A blinking gold cell = it is the last one missing to finish a line!<br>' +
+ '• 📅 <b>Daily Challenge</b>: the same pieces for every player in the world. Compare scores with your friends.<br>' +
+ '• Every game raises your <b>rank</b> and fills your <b>chest</b> (1 chest every 3 games).<br>' +
+ '• The game ends when no piece fits anymore.';
+let GUIDE_FR = null;
+let LANG = (function(){ try { const l = localStorage.getItem('bb_lang'); if(l === 'fr' || l === 'en') return l; } catch(e){} return /^fr/i.test(navigator.language || '') ? 'fr' : 'en'; })();
+let LOC = LANG === 'fr' ? 'fr-FR' : 'en-US';
+function tr(str, v){
+  let o = (LANG === 'en' && EN[str] !== undefined) ? EN[str] : str;
+  if(v) for(const k in v) o = o.split('{' + k + '}').join(v[k]);
+  return o;
+}
+function fmt(n){ return Math.round(n).toLocaleString(LOC); }
+function applyLang(){
+  LOC = LANG === 'fr' ? 'fr-FR' : 'en-US';
+  document.documentElement.lang = LANG;
+  const g = document.getElementById('guideBody');
+  if(GUIDE_FR === null) GUIDE_FR = g.innerHTML;
+  g.innerHTML = LANG === 'en' ? GUIDE_EN : GUIDE_FR;
+  const w = document.createTreeWalker(document.getElementById('app'), NodeFilter.SHOW_TEXT);
+  let n;
+  while((n = w.nextNode())){
+    if(g.contains(n)) continue;
+    if(n.__fr === undefined) n.__fr = n.nodeValue;
+    const raw = n.__fr, t = raw.trim();
+    if(!t) continue;
+    n.nodeValue = raw.match(/^\s*/)[0] + tr(t) + raw.match(/\s*$/)[0];
+  }
+}
+/* ---------- Plateforme : CrazyGames SDK v3 (si présent) ---------- */
+const CG = { sdk:null, on:false };
+async function initPlatform(){
+  const sdk = window.CrazyGames && window.CrazyGames.SDK;
+  if(!sdk) return;
+  try {
+    await Promise.race([sdk.init(), new Promise((_, rej)=> setTimeout(()=> rej(new Error('timeout')), 5000))]);
+    CG.sdk = sdk; CG.on = true; window.__cgOn = true;
+  } catch(e){ CG.on = false; }
+}
+function cgCall(fn){ if(!CG.on) return; try { fn(CG.sdk); } catch(e){} }
+const gpStart = ()=> cgCall(s => s.game.gameplayStart());
+const gpStop  = ()=> cgCall(s => s.game.gameplayStop());
+const happy   = ()=> cgCall(s => s.game.happytime());
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
 const rand = n => Math.floor(Math.random()*n);
@@ -620,6 +728,7 @@ const Sound = (function(){
     setIntensity(i){ targetInt = i; },
     setMusic(on){ musicOn = on; if(!ctx) return; mus.gain.setTargetAtTime(on ? 0.5 : 0, ctx.currentTime, 0.15); if(on) startMusic(); else setTimeout(()=>{ if(!musicOn) stopMusic(); }, 600); },
     setSfx(on){ sfxOn = on; if(ctx) sfx.gain.setTargetAtTime(on ? 0.85 : 0, ctx.currentTime, 0.05); },
+    mute(on){ if(!ctx) return; master.gain.setTargetAtTime(on ? 0 : 0.9, ctx.currentTime, 0.05); },
     duck(on){ if(!ctx) return; master.gain.setTargetAtTime(on ? 0.15 : 0.9, ctx.currentTime, 0.2); },
     musicDive(on){ if(!ctx) return; musFilter.frequency.setTargetAtTime(on ? 380 : 2600, ctx.currentTime, on ? 0.4 : 0.3); },
     suspend(){ if(ctx && ctx.state === 'running') ctx.suspend(); },
@@ -1144,8 +1253,8 @@ function startRun(newMode){
   checkObjectives();
   saveGame();
   genDock();
-  running = true; locked = false;
-  hideScreens();
+  running = true; locked = false; runsThisSession++;
+  hideScreens(); gpStart();
   Sound.musicDive(false);
   updateIntensity();
   updateHUD();
@@ -1234,7 +1343,7 @@ function placePiece(idx, r, c){
     const big = L >= 2 || perfect;
     floatText('+' + pts, ox, oy, { size: 24 + Math.min(L, 5)*5, color: big ? '#ffd75e' : '#ffffff' });
     const perfectNow = filledCount() === 0;
-    if(L >= 2 && !perfectNow) setTimeout(()=> floatText(PRAISE[Math.min(L, 6)], br.left + boardPx/2, br.top + boardPx*0.3, { size: 40 + L*5, color: PRAISE_COL[Math.min(L,6)], max:1.3, rise:30 }), 120);
+    if(L >= 2 && !perfectNow) setTimeout(()=> floatText(tr(PRAISE[Math.min(L, 6)]), br.left + boardPx/2, br.top + boardPx*0.3, { size: 40 + L*5, color: PRAISE_COL[Math.min(L,6)], max:1.3, rise:30 }), 120);
     if(combo >= 2) setTimeout(()=> floatText('COMBO ×' + combo, br.left + boardPx/2, br.top + boardPx*0.74, { size: 30 + Math.min(combo, 8)*2, color:'#ff8fbf', max:1.1, rise:40 }), 220);
     Sound.clear(L, combo);
     if(combo >= 2) Sound.combo(combo);
@@ -1248,7 +1357,7 @@ function placePiece(idx, r, c){
       save.stats.perfects++;
       coins += 15;
       setTimeout(()=>{
-        floatText('GRILLE PARFAITE !', VW/2, br.top + boardPx/2, { size:44, color:'#7fe8ff', max:1.8, rise:20 });
+        floatText(tr('GRILLE PARFAITE !'), VW/2, br.top + boardPx/2, { size:44, color:'#7fe8ff', max:1.8, rise:20 });
         Sound.perfect(); flash(0.6); shake(16); fireworks(5); vibrate([50, 50, 120]);
       }, 380);
     }
@@ -1264,7 +1373,7 @@ function placePiece(idx, r, c){
   }
   if(mode === 'classic' && score > save.best && save.best > 0 && !recordBeatenShown){
     recordBeatenShown = true;
-    setTimeout(()=>{ floatText('NOUVEAU RECORD !', VW/2, br.top + boardPx*0.3, { size:34, color:'#ffd75e', max:1.6, rise:20 }); Sound.record(); }, 500);
+    setTimeout(()=>{ floatText(tr('NOUVEAU RECORD !'), VW/2, br.top + boardPx*0.3, { size:34, color:'#ffd75e', max:1.6, rise:20 }); Sound.record(); }, 500);
   }
   updateIntensity();
 
@@ -1301,7 +1410,7 @@ function explode(delays, now){
       const [x, y] = cellScreen(b);
       sparks(x, y, '#ffb020', 40, 1.8); sparks(x, y, '#ff5d3d', 25, 1.2); ring(x, y, '#ffb020', cs*3, 10); ring(x, y, '#ffffff', cs*2, 4);
       Sound.bomb(); shake(14); flash(0.4); vibrate([60, 30, 80]);
-      floatText('BOUM !', x, y, { size:34, color:'#ffb020', max:0.9 });
+      floatText(tr('BOUM !'), x, y, { size:34, color:'#ffb020', max:0.9 });
     }, bd + 100);
   }
   for(const [i, d] of delays){
@@ -1328,7 +1437,7 @@ function startFever(){
 function endFever(silent){
   fever = false;
   document.body.classList.remove('fever');
-  if(!silent) toast('Fever terminé — enchaîne pour le relancer !');
+  if(!silent) toast(tr('Fever terminé — enchaîne pour le relancer !'));
   updateIntensity();
 }
 function updateIntensity(){
@@ -1338,10 +1447,10 @@ function updateIntensity(){
 
 function undo(){
   if(currentScreen !== 'game' || locked || drag) return;
-  if(mode === 'daily'){ toast('Pas d’annulation dans le Défi du jour : même règle pour tous'); Sound.invalid(); return; }
-  if(!history.length){ toast('Rien à annuler'); return; }
+  if(mode === 'daily'){ toast(tr('Pas d’annulation dans le Défi du jour : même règle pour tous')); Sound.invalid(); return; }
+  if(!history.length){ toast(tr('Rien à annuler')); return; }
   if(freeUndo <= 0){
-    if(save.coins < 20){ toast('Il faut 20 pièces pour annuler'); Sound.invalid(); return; }
+    if(save.coins < 20){ toast(tr('Il faut 20 pièces pour annuler')); Sound.invalid(); return; }
     save.coins -= 20; updateCoinsText();
   } else freeUndo--;
   const s = history.pop();
@@ -1353,7 +1462,7 @@ function undo(){
 }
 
 function triggerGameOver(){
-  running = false; locked = true;
+  running = false; locked = true; gpStop();
   if(fever) endFever(true);
   grayStart = performance.now();
   Sound.gameOver(); Sound.musicDive(true); Sound.setIntensity(0);
@@ -1375,23 +1484,28 @@ function showGameOver(){
   const xp = gainXp();
   bumpChest();
   saveGame();
-  $('goTitle').textContent = isDaily ? 'Défi du jour terminé' : isClassic ? 'Partie terminée' : 'Plus de place !';
-  $('goScore').textContent = score.toLocaleString('fr-FR');
-  $('goBest').textContent = isClassic ? 'Record ' + save.best.toLocaleString('fr-FR') : isDaily ? 'Ton meilleur score du jour : ' + save.daily.best.toLocaleString('fr-FR') : 'Lignes : ' + lines + ' / ' + target;
+  $('goTitle').textContent = tr(isDaily ? 'Défi du jour terminé' : isClassic ? 'Partie terminée' : 'Plus de place !');
+  $('goScore').textContent = score.toLocaleString(LOC);
+  $('goBest').textContent = isClassic ? tr('Record {n}', { n:fmt(save.best) }) : isDaily ? tr('Ton meilleur score du jour : {n}', { n:fmt(save.daily.best) }) : tr('Lignes : {a} / {b}', { a:lines, b:target });
   let goal = '';
   if(!rec && (isClassic || isDaily) && prevBest > score){
     const gap = prevBest - score;
-    goal = gap <= prevBest*0.3 ? '😱 Si près ! Plus que ' + gap.toLocaleString('fr-FR') + ' pts pour ton record' : '🎯 Ton record : ' + prevBest.toLocaleString('fr-FR') + ' — tu peux le battre !';
+    goal = gap <= prevBest*0.3 ? tr('😱 Si près ! Plus que {n} pts pour ton record', { n:fmt(gap) }) : tr('🎯 Ton record : {n} — tu peux le battre !', { n:fmt(prevBest) });
   } else if(!isClassic && !isDaily){
     const left = target - lines;
-    goal = left <= 2 ? '😱 Si près ! Plus que ' + left + ' ligne' + (left > 1 ? 's' : '') + ' pour finir le niveau' : '🎯 Encore ' + left + ' lignes pour le niveau ' + save.level;
+    goal = left <= 2 ? tr(left > 1 ? '😱 Si près ! Plus que {n} lignes pour finir le niveau' : '😱 Si près ! Plus que {n} ligne pour finir le niveau', { n:left }) : tr('🎯 Encore {n} lignes pour le niveau {l}', { n:left, l:save.level });
   }
   $('goGoal').textContent = goal;
   $('goRecord').classList.toggle('show', rec);
-  $('goAd').style.display = (continued || isDaily) ? 'none' : '';
+  // relance : pas à chaque défaite (une fois sur deux), pas en Défi du jour, après un vrai effort
+  const offer = !continued && !isDaily && score >= 200 && !lastOfferedContinue;
+  lastOfferedContinue = offer;
+  $('goContRow').style.display = offer ? '' : 'none';
+  $('goContHint').style.display = offer ? '' : 'none';
+  $('goCoins').disabled = save.coins < 100;
   showScreen('scr-gameover');
   showProgress($('goRank'), $('goChest'), $('goChestBtn'), xp);
-  if(rec){ Sound.record(); fireworks(6); }
+  if(rec){ Sound.record(); fireworks(6); happy(); }
 }
 function continueRun(){
   continued = true;
@@ -1410,11 +1524,11 @@ function continueRun(){
   explode(delays, performance.now());
   Sound.clear(3, 1); shake(10); flash(0.3);
   Sound.musicDive(false);
-  running = true;
+  running = true; gpStart();
   setTimeout(()=>{ genDock(); locked = false; updateIntensity(); }, 400);
 }
 function levelComplete(){
-  running = false; locked = true;
+  running = false; locked = true; gpStop(); happy();
   if(fever) endFever(true);
   const done = save.level;
   lastLevelReward = 30 + 5*done;
@@ -1425,19 +1539,16 @@ function levelComplete(){
   saveGame();
   Sound.level(); Sound.setIntensity(1); fireworks(6); vibrate([40, 40, 120]);
   const br = board.getBoundingClientRect();
-  floatText('NIVEAU RÉUSSI !', VW/2, br.top + boardPx/2, { size:42, color:'#9cf5c0', max:1.4, rise:20 });
+  floatText(tr('NIVEAU RÉUSSI !'), VW/2, br.top + boardPx/2, { size:42, color:'#9cf5c0', max:1.4, rise:20 });
   const show = () => {
     $('lcLevel').textContent = done;
-    $('lcScore').textContent = score.toLocaleString('fr-FR');
+    $('lcScore').textContent = score.toLocaleString(LOC);
     $('lcReward').textContent = '+' + lastLevelReward;
-    $('lcDouble').disabled = false; $('lcDouble').style.display = '';
     showScreen('scr-level');
     showProgress($('lcRank'), $('lcChest'), $('lcChestBtn'), xp);
     setTimeout(()=> addCoins(lastLevelReward, VW/2, VH/2), 300);
   };
-  // interstitiel : jamais avant le niveau 5, puis tous les 3 niveaux
-  if(done >= 5 && done % 3 === 0) setTimeout(()=> showAd('interstitial', show), 1300);
-  else setTimeout(show, 1300);
+  setTimeout(show, 1300);
 }
 
 /* ============================ RÉTENTION : rangs, coffres, série, défi du jour ============================ */
@@ -1445,10 +1556,10 @@ const RANKS = [['🪵','Bois',0],['🥉','Bronze I',150],['🥉','Bronze II',350
   ['🥇','Or I',2800],['🥇','Or II',3800],['🥇','Or III',5000],['💠','Platine',6500],['💎','Diamant',8500],['👑','Maître',11500],['🌟','Légende',15000]];
 function rankOf(xp){ let i = 0; while(i + 1 < RANKS.length && xp >= RANKS[i+1][2]) i++; return i; }
 function rankPct(xp){ const i = rankOf(xp), nx = RANKS[i+1]; return nx ? (xp - RANKS[i][2])/(nx[2] - RANKS[i][2])*100 : 100; }
-function rankMeta(xp){ const nx = RANKS[rankOf(xp)+1]; return nx ? (nx[2] - xp).toLocaleString('fr-FR') + ' XP avant ' + nx[0] + ' ' + nx[1] : 'Rang maximum atteint !'; }
+function rankMeta(xp){ const nx = RANKS[rankOf(xp)+1]; return nx ? tr('{n} XP avant {r}', { n:fmt(nx[2] - xp), r:nx[0] + ' ' + tr(nx[1]) }) : tr('Rang maximum atteint !'); }
 function renderRankBox(el, xp, extra){
   const r = RANKS[rankOf(xp)];
-  el.innerHTML = '<div class="rankIcon">' + r[0] + '</div><div class="rankInfo"><div class="rankName">' + r[1] + (extra ? ' <span style="color:#c1b5ff">' + extra + '</span>' : '') +
+  el.innerHTML = '<div class="rankIcon">' + r[0] + '</div><div class="rankInfo"><div class="rankName">' + tr(r[1]) + (extra ? ' <span style="color:#c1b5ff">' + extra + '</span>' : '') +
     '</div><div class="xpbar"><i style="width:' + rankPct(xp) + '%"></i></div><div class="rankMeta">' + rankMeta(xp) + '</div></div>';
 }
 function gainXp(){
@@ -1463,7 +1574,7 @@ function showProgress(rankEl, pipsEl, btnEl, xp){
     if(rankOf(xp.after) > rankOf(xp.before)){
       renderRankBox(rankEl, xp.after, '+' + xp.gain + ' XP');
       const r = RANKS[rankOf(xp.after)];
-      floatText('RANG ' + r[1].toUpperCase() + ' !', VW/2, VH*0.3, { size:36, color:'#c1b5ff', max:1.8, rise:20 });
+      floatText(tr('RANG {r} !', { r:tr(r[1]).toUpperCase() }), VW/2, VH*0.3, { size:36, color:'#c1b5ff', max:1.8, rise:20 });
       Sound.level(); fireworks(5); vibrate([40, 40, 120]);
       addCoins(50, VW/2, VH*0.3);
     } else {
@@ -1476,7 +1587,7 @@ function showProgress(rankEl, pipsEl, btnEl, xp){
 function bumpChest(){ save.chest = Math.min(3, (save.chest || 0) + 1); }
 function chestUI(pipsEl, btnEl){
   const n = save.chest || 0;
-  pipsEl.innerHTML = 'Coffre ' + [0,1,2].map(i => '<i class="' + (i < n ? 'on' : '') + '"></i>').join('') + ' ' + n + '/3';
+  pipsEl.innerHTML = tr('Coffre') + ' ' + [0,1,2].map(i => '<i class="' + (i < n ? 'on' : '') + '"></i>').join('') + ' ' + n + '/3';
   pipsEl.style.display = n >= 3 ? 'none' : '';
   btnEl.style.display = n >= 3 ? '' : 'none';
 }
@@ -1485,7 +1596,7 @@ function openChest(){
   if((save.chest || 0) < 3) return;
   save.chest = 0; saveGame();
   chestBack = currentScreen;
-  $('chTitle').textContent = 'Coffre mystère'; $('chIcon').textContent = '🎁'; $('chIcon').classList.add('shake');
+  $('chTitle').textContent = tr('Coffre mystère'); $('chIcon').textContent = '🎁'; $('chIcon').classList.add('shake');
   $('chTier').textContent = '…'; $('chTier').style.color = ''; $('chText').textContent = ''; $('chOk').style.display = 'none';
   showScreen('scr-chest'); Sound.whoosh(); vibrate([20,40,20,40,20]);
   const iv = setInterval(()=> Sound.snap(), 90);
@@ -1495,12 +1606,12 @@ function openChest(){
     let tier, color, icon, coins = 0, text = '';
     const locked = SKIN_ORDER.filter(k => !save.skins[k]);
     if(r < 0.02){ tier = 'LÉGENDAIRE'; color = '#ffd75e'; icon = '👑';
-      if(locked.length){ const k = locked[rand(locked.length)]; save.skins[k] = true; text = 'Skin débloqué : ' + SKINS[k].name + ' ✨'; } else { coins = 500; }
+      if(locked.length){ const k = locked[rand(locked.length)]; save.skins[k] = true; text = tr('Skin débloqué : {s}', { s:SKINS[k].name }) + ' ✨'; } else { coins = 500; }
     } else if(r < 0.12){ tier = 'ÉPIQUE'; color = '#c1b5ff'; icon = '💎'; coins = 150 + rand(101); }
     else if(r < 0.40){ tier = 'RARE'; color = '#7fe8ff'; icon = '💰'; coins = 60 + rand(41); }
     else { tier = 'COMMUN'; color = '#e6e9ff'; icon = '🪙'; coins = 20 + rand(21); }
-    $('chIcon').textContent = icon; $('chTier').textContent = tier; $('chTier').style.color = color;
-    if(coins){ text = '+' + coins + ' pièces'; addCoins(coins, VW/2, VH*0.42); }
+    $('chIcon').textContent = icon; $('chTier').textContent = tr(tier); $('chTier').style.color = color;
+    if(coins){ text = tr('+{n} pièces', { n:coins }); addCoins(coins, VW/2, VH*0.42); }
     $('chText').textContent = text; $('chOk').style.display = '';
     const big = tier !== 'COMMUN' && tier !== 'RARE';
     flash(big ? 0.6 : 0.3); fireworks(big ? 7 : 2); big ? Sound.perfect() : Sound.level();
@@ -1518,8 +1629,8 @@ function checkStreak(){
 function showStreak(){
   const s = save.streak, day = (s.count - 1) % 7;
   $('stDays').textContent = s.count; $('stS').textContent = s.count > 1 ? 's' : '';
-  $('stGrid').innerHTML = STREAK_REWARDS.map((v,i)=> '<div class="day' + (i < day ? ' done' : '') + (i === day ? ' today' : '') + (i === 6 ? ' big' : '') + '">J' + (i+1) + (i === 6 ? ' 🎁' : '') + '<b>' + v + '</b></div>').join('');
-  $('stClaim').textContent = 'Récupérer ' + STREAK_REWARDS[day] + ' pièces';
+  $('stGrid').innerHTML = STREAK_REWARDS.map((v,i)=> '<div class="day' + (i < day ? ' done' : '') + (i === day ? ' today' : '') + (i === 6 ? ' big' : '') + '">' + tr('J{n}', { n:i+1 }) + (i === 6 ? ' 🎁' : '') + '<b>' + v + '</b></div>').join('');
+  $('stClaim').textContent = tr('Récupérer {n} pièces', { n:STREAK_REWARDS[day] });
   showScreen('scr-streak');
 }
 function claimStreak(){
@@ -1533,12 +1644,14 @@ function claimStreak(){
 }
 function dailyRef(){ if(!save.daily || save.daily.d !== todayStr()) save.daily = { d:todayStr(), best:0, tries:0 }; }
 function shareScore(){
-  const d = new Date(), url = 'https://o-alil-lab.github.io/block-boom/';
-  const head = mode === 'daily' ? '📅 Block Boom — Défi du ' + d.getDate() + '/' + (d.getMonth()+1) : '🧱 Block Boom';
-  const txt = head + '\n🏆 ' + score.toLocaleString('fr-FR') + ' pts · 🔥 combo ×' + runMaxCombo + ' · 💥 ' + lines + ' lignes\n' +
-    (mode === 'daily' ? 'Mêmes pièces pour tout le monde. Tu fais mieux ? 👉 ' : 'Bats mon score 👉 ') + url;
+  const d = new Date();
+  const url = CG.on ? (/crazygames/.test(document.referrer) ? document.referrer : '') : 'https://o-alil-lab.github.io/block-boom/';
+  const en = LANG === 'en';
+  const head = mode === 'daily' ? (en ? '📅 Block Boom — Daily ' : '📅 Block Boom — Défi du ') + d.getDate() + '/' + (d.getMonth()+1) : '🧱 Block Boom';
+  const txt = head + '\n🏆 ' + fmt(score) + ' pts · 🔥 combo ×' + runMaxCombo + ' · 💥 ' + lines + (en ? ' lines\n' : ' lignes\n') +
+    (mode === 'daily' ? (en ? 'Same pieces for everyone. Can you beat me?' : 'Mêmes pièces pour tout le monde. Tu fais mieux ?') : (en ? 'Beat my score!' : 'Bats mon score !')) + (url ? ' 👉 ' + url : '');
   if(navigator.share){ navigator.share({ text:txt }).catch(()=>{}); return; }
-  if(navigator.clipboard){ navigator.clipboard.writeText(txt).then(()=> toast('Copié ! Colle-le sur WhatsApp ou TikTok'), ()=> toast(txt)); }
+  if(navigator.clipboard){ navigator.clipboard.writeText(txt).then(()=> toast(tr('Copié ! Colle-le sur WhatsApp ou TikTok')), ()=> toast(txt)); }
   else toast(txt);
 }
 
@@ -1550,11 +1663,23 @@ function addCoins(n, x, y){
   updateCoinsText(); saveGame();
 }
 function updateCoinsText(){ $('coinsVal').textContent = Math.round(save.coins - pendingCoins); }
-function showAd(kind, onDone){
+let lastMidgame = 0, runsThisSession = 0, lastOfferedContinue = false;
+function showAd(kind, onDone, onFail){
+  if(CG.on){
+    const type = kind === 'interstitial' ? 'midgame' : 'rewarded';
+    gpStop(); document.body.classList.add('adbusy');
+    const end = ()=>{ Sound.mute(false); document.body.classList.remove('adbusy'); };
+    CG.sdk.ad.requestAd(type, {
+      adStarted: ()=> Sound.mute(true),
+      adFinished: ()=>{ end(); save.stats.ads++; saveGame(); if(onDone) onDone(); },
+      adError: ()=>{ end(); if(kind === 'interstitial'){ if(onDone) onDone(); } else { toast(tr('Aucune pub disponible pour le moment')); if(onFail) onFail(); } }
+    });
+    return;
+  }
   prevScreen = currentScreen;
   const p = AD_PRODUCTS[rand(AD_PRODUCTS.length)];
   $('adEmoji').textContent = p.emoji; $('adName').textContent = p.name; $('adText').textContent = p.text;
-  const skip = $('adSkip'); skip.disabled = true; skip.textContent = 'Regarder…';
+  const skip = $('adSkip'); skip.disabled = true; skip.textContent = tr('Regarder…');
   showScreen('scr-ad'); Sound.duck(true);
   let left = 3; $('adCount').textContent = left;
   clearInterval(adTimer);
@@ -1563,10 +1688,16 @@ function showAd(kind, onDone){
     if(left <= 0){
       clearInterval(adTimer);
       if(kind === 'interstitial') closeAd(onDone);
-      else { skip.disabled = false; skip.textContent = 'Récupérer la récompense'; }
+      else { skip.disabled = false; skip.textContent = tr('Récupérer la récompense'); }
     }
   }, 1000);
   skip.onclick = () => closeAd(onDone);
+}
+// pub « entre deux parties » : seulement quand le joueur relance, après un vrai temps de jeu, max 1 toutes les 3 min
+function midgameThen(fn){
+  const now = Date.now();
+  if(runsThisSession >= 2 && now - lastMidgame > 180000){ lastMidgame = now; showAd('interstitial', fn); }
+  else fn();
 }
 function closeAd(onDone){
   clearInterval(adTimer);
@@ -1578,12 +1709,12 @@ function adsLeftToday(){ if(save.adDay.d !== todayStr()) save.adDay = { d:todayS
 
 /* ============================ OBJECTIVES ============================ */
 const OBJ_POOL = [
-  { id:'blocks', label:n=>'Placer ' + n + ' blocs', targets:[60,100,150], cur:o=>save.stats.blocks - o.base.blocks },
-  { id:'lines',  label:n=>'Faire exploser ' + n + ' lignes', targets:[12,20,35], cur:o=>save.stats.lines - o.base.lines },
-  { id:'score',  label:n=>'Faire ' + n.toLocaleString('fr-FR') + ' points en une partie', targets:[1500,3000,5000], cur:o=>o.dayBest },
-  { id:'games',  label:n=>'Jouer ' + n + ' parties', targets:[3,5,8], cur:o=>save.stats.games - o.base.games },
-  { id:'combo',  label:n=>'Atteindre un combo ×' + n, targets:[3,4,6], cur:o=>o.dayCombo },
-  { id:'gems',   label:n=>'Récolter ' + n + ' gemmes', targets:[4,8,12], cur:o=>save.stats.gems - o.base.gems }
+  { id:'blocks', label:n=>tr('Placer {n} blocs', { n }), targets:[60,100,150], cur:o=>save.stats.blocks - o.base.blocks },
+  { id:'lines',  label:n=>tr('Faire exploser {n} lignes', { n }), targets:[12,20,35], cur:o=>save.stats.lines - o.base.lines },
+  { id:'score',  label:n=>tr('Faire {n} points en une partie', { n:fmt(n) }), targets:[1500,3000,5000], cur:o=>o.dayBest },
+  { id:'games',  label:n=>tr('Jouer {n} parties', { n }), targets:[3,5,8], cur:o=>save.stats.games - o.base.games },
+  { id:'combo',  label:n=>tr('Atteindre un combo ×{n}', { n }), targets:[3,4,6], cur:o=>o.dayCombo },
+  { id:'gems',   label:n=>tr('Récolter {n} gemmes', { n }), targets:[4,8,12], cur:o=>save.stats.gems - o.base.gems }
 ];
 function refreshObjectives(){
   if(save.obj && save.obj.date === todayStr()) return;
@@ -1607,11 +1738,11 @@ function checkObjectives(){
     if(!it.done && def.cur(o) >= it.target){
       it.done = true;
       addCoins(50, VW/2, VH*0.2);
-      toast('🏆 Défi terminé : ' + def.label(it.target) + ' (+50)');
+      toast(tr('🏆 Défi terminé : {q} (+50)', { q:def.label(it.target) }));
     }
     if(!it.done) all = false;
   }
-  if(all && !o.bonus){ o.bonus = true; addCoins(200, VW/2, VH*0.2); setTimeout(()=> toast('🎉 Tous les défis du jour ! +200'), 1800); }
+  if(all && !o.bonus){ o.bonus = true; addCoins(200, VW/2, VH*0.2); setTimeout(()=> toast(tr('🎉 Tous les défis du jour ! +200')), 1800); }
   $('objBadge').classList.toggle('show', o.items.some(i=>!i.done));
 }
 
@@ -1626,6 +1757,7 @@ function hideScreens(){ showScreen(null); }
 let backTo = 'scr-menu';
 function openSub(id, render){ backTo = currentScreen === 'pause' ? 'scr-pause' : 'scr-menu'; if(render) render(); Sound.ui(); showScreen(id); }
 function goMenu(){
+  if(running) gpStop();
   running = false; locked = true; drag = null;
   if(fever) endFever(true);
   grayStart = 0; Sound.musicDive(false); Sound.setIntensity(0);
@@ -1633,11 +1765,11 @@ function goMenu(){
 }
 function renderMenu(){
   refreshObjectives();
-  $('advLvl').textContent = 'Niveau ' + save.level;
-  $('classicBest').textContent = 'Record ' + save.best.toLocaleString('fr-FR');
+  $('advLvl').textContent = tr('Niveau {n}', { n:save.level });
+  $('classicBest').textContent = tr('Record {n}', { n:fmt(save.best) });
   renderRankBox($('menuRank'), save.xp || 0);
   dailyRef();
-  $('dailyInfo').textContent = save.daily.best ? 'Ton meilleur aujourd’hui : ' + save.daily.best.toLocaleString('fr-FR') : 'Mêmes pièces pour tout le monde';
+  $('dailyInfo').textContent = save.daily.best ? tr('Ton meilleur aujourd’hui : {n}', { n:fmt(save.daily.best) }) : tr('Mêmes pièces pour tout le monde');
   $('objBadge').classList.toggle('show', save.obj.items.some(i=>!i.done));
   updateCoinsText();
 }
@@ -1652,25 +1784,26 @@ function renderShop(){
     [[0,0],[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1]].forEach(([x,y],i)=> drawBlock(c, i, 4 + x*22, 3 + y*22, 21));
     save.skin = old;
     const info = document.createElement('div'); info.className = 'info';
-    info.innerHTML = '<div class="name">' + s.name + (s.glow ? ' ✨' : '') + '</div><div class="meta">' + (active ? 'Équipé' : owned ? 'Acquis' : SKIN_PRICE[key] + ' pièces') + '</div>';
+    info.innerHTML = '<div class="name">' + s.name + (s.glow ? ' ✨' : '') + '</div><div class="meta">' + (active ? tr('Équipé') : owned ? tr('Acquis') : tr('{n} pièces', { n:SKIN_PRICE[key] })) + '</div>';
     const btn = document.createElement('button'); btn.className = 'btn small ' + (active ? 'secondary' : 'primary');
     if(active){ btn.textContent = '✓'; btn.disabled = true; }
-    else if(owned){ btn.textContent = 'Équiper'; btn.onclick = ()=>{ save.skin = key; spriteCache.clear(); saveGame(); renderShop(); Sound.ui(); }; }
+    else if(owned){ btn.textContent = tr('Équiper'); btn.onclick = ()=>{ save.skin = key; spriteCache.clear(); saveGame(); renderShop(); Sound.ui(); }; }
     else {
-      btn.textContent = 'Acheter';
+      btn.textContent = tr('Acheter');
       btn.onclick = ()=>{
         const price = SKIN_PRICE[key];
-        if(save.coins >= price){ save.coins -= price; save.skins[key] = true; save.skin = key; spriteCache.clear(); saveGame(); updateCoinsText(); Sound.level(); toast('Skin débloqué : ' + s.name); renderShop(); }
-        else { Sound.invalid(); toast('Il te manque ' + (price - save.coins) + ' pièces'); }
+        if(save.coins >= price){ save.coins -= price; save.skins[key] = true; save.skin = key; spriteCache.clear(); saveGame(); updateCoinsText(); Sound.level(); toast(tr('Skin débloqué : {s}', { s:s.name })); renderShop(); }
+        else { Sound.invalid(); toast(tr('Il te manque {n} pièces', { n:price - save.coins })); }
       };
     }
     row.append(cv, info, btn); list.appendChild(row);
   });
   const left = adsLeftToday();
+  const cooldown = Math.max(0, Math.ceil((180000 - (Date.now() - (save.lastShopAd || 0)))/60000));
   const row = document.createElement('div'); row.className = 'row';
-  row.innerHTML = '<div class="info"><div class="name">📺 Pièces gratuites</div><div class="meta">+50 pièces · encore ' + left + ' aujourd’hui</div></div>';
-  const btn = document.createElement('button'); btn.className = 'btn small pink'; btn.textContent = 'Regarder'; btn.disabled = left <= 0;
-  btn.onclick = ()=>{ if(adsLeftToday() <= 0) return; showAd('rewarded', ()=>{ save.adDay.n++; addCoins(50, VW/2, VH/2); renderShop(); }); };
+  row.innerHTML = '<div class="info"><div class="name">' + tr('📺 Pièces gratuites') + '</div><div class="meta">' + (cooldown > 0 ? tr('Prochaine pub dans {n} min', { n:cooldown }) : tr('+50 pièces · encore {n} aujourd’hui', { n:left })) + '</div></div>';
+  const btn = document.createElement('button'); btn.className = 'btn small pink'; btn.textContent = tr('Regarder'); btn.disabled = left <= 0 || cooldown > 0;
+  btn.onclick = ()=>{ if(adsLeftToday() <= 0) return; showAd('rewarded', ()=>{ save.adDay.n++; save.lastShopAd = Date.now(); addCoins(50, VW/2, VH/2); renderShop(); }); };
   row.appendChild(btn); list.appendChild(row);
 }
 function renderObj(){
@@ -1680,16 +1813,16 @@ function renderObj(){
     const def = OBJ_POOL.find(p => p.id === it.id), cur = Math.min(def.cur(o), it.target);
     const row = document.createElement('div'); row.className = 'row' + (it.done ? ' done' : '');
     row.innerHTML = '<div class="info"><div class="name">' + (it.done ? '✅ ' : '') + def.label(it.target) + '</div>' +
-      '<div class="bar"><i style="width:' + (cur/it.target*100) + '%"></i></div><div class="meta">' + cur.toLocaleString('fr-FR') + ' / ' + it.target.toLocaleString('fr-FR') + '</div></div>';
+      '<div class="bar"><i style="width:' + (cur/it.target*100) + '%"></i></div><div class="meta">' + cur.toLocaleString(LOC) + ' / ' + it.target.toLocaleString(LOC) + '</div></div>';
     list.appendChild(row);
   }
 }
 function renderRank(){
   const list = $('rankList'); list.innerHTML = '';
-  if(!save.records.length){ list.innerHTML = '<div class="muted">Joue une partie en mode Classique pour inscrire ton premier record !</div>'; return; }
+  if(!save.records.length){ list.innerHTML = '<div class="muted">' + tr('Joue une partie en mode Classique pour inscrire ton premier record !') + '</div>'; return; }
   save.records.forEach((r,i)=>{
     const row = document.createElement('div'); row.className = 'row' + (i === 0 ? ' active' : '');
-    row.innerHTML = '<div class="rank">' + ['🥇','🥈','🥉','4','5'][i] + '</div><div class="info"><div class="name">' + r.s.toLocaleString('fr-FR') + ' pts</div><div class="meta">' + r.d + '</div></div>';
+    row.innerHTML = '<div class="rank">' + ['🥇','🥈','🥉','4','5'][i] + '</div><div class="info"><div class="name">' + r.s.toLocaleString(LOC) + ' pts</div><div class="meta">' + r.d + '</div></div>';
     list.appendChild(row);
   });
 }
@@ -1697,7 +1830,7 @@ function renderStats(){
   const s = save.stats;
   const rows = [['Parties jouées', s.games], ['Niveau Aventure', save.level], ['Record Classique', save.best], ['Blocs posés', s.blocks], ['Lignes explosées', s.lines],
     ['Meilleur combo', s.maxCombo], ['Gemmes récoltées', s.gems], ['Bombes déclenchées', s.bombs], ['Grilles parfaites', s.perfects], ['Pièces gagnées', s.coinsEarned]];
-  $('statsList').innerHTML = rows.map(r => '<div class="row"><div class="info name">' + r[0] + '</div><b>' + (r[1]||0).toLocaleString('fr-FR') + '</b></div>').join('');
+  $('statsList').innerHTML = rows.map(r => '<div class="row"><div class="info name">' + tr(r[0]) + '</div><b>' + (r[1]||0).toLocaleString(LOC) + '</b></div>').join('');
 }
 function toast(msg){
   const t = $('toast'); t.textContent = msg; t.classList.add('show');
@@ -1707,21 +1840,21 @@ function bumpEl(el){ el.classList.remove('bump'); void el.offsetWidth; el.classL
 
 /* ============================ HUD ============================ */
 function updateHUD(){
-  $('modePill').textContent = mode === 'adventure' ? 'Niv. ' + save.level : mode === 'daily' ? '📅 Défi du jour' : '∞ Classique';
+  $('modePill').textContent = mode === 'adventure' ? tr('Niv. {n}', { n:save.level }) : mode === 'daily' ? tr('📅 Défi du jour') : tr('∞ Classique');
   updateCoinsText();
   const adv = mode === 'adventure';
   const recBest = mode === 'daily' ? (save.daily ? save.daily.best : 0) : save.best;
   $('progressWrap').style.display = (adv || recBest > 0) ? '' : 'none';
   $('bestVal').style.display = (adv || recBest > 0) ? 'none' : '';
-  $('bestVal').textContent = 'Premier record à établir !';
+  $('bestVal').textContent = tr('Premier record à établir !');
   if(adv){
-    $('progressLabel').textContent = Math.min(lines, target) + ' / ' + target + ' lignes';
+    $('progressLabel').textContent = tr('{a} / {b} lignes', { a:Math.min(lines, target), b:target });
     $('progressFill').style.width = (target ? Math.min(100, lines/target*100) : 0) + '%';
   } else if(recBest > 0){
-    $('progressLabel').textContent = score >= recBest ? '🎉 Record battu ! (' + recBest.toLocaleString('fr-FR') + ')' : 'Record : ' + recBest.toLocaleString('fr-FR') + ' — encore ' + (recBest - score).toLocaleString('fr-FR');
+    $('progressLabel').textContent = score >= recBest ? tr('🎉 Record battu ! ({n})', { n:fmt(recBest) }) : tr('Record : {n} — encore {m}', { n:fmt(recBest), m:fmt(recBest - score) });
     $('progressFill').style.width = Math.min(100, score/recBest*100) + '%';
   }
-  $('undoCost').textContent = mode === 'daily' ? '✕' : freeUndo > 0 ? 'gratuit' : '20';
+  $('undoCost').textContent = mode === 'daily' ? '✕' : freeUndo > 0 ? tr('gratuit') : '20';
   $('undoBtn').classList.toggle('off', mode === 'daily');
   $('musicBtn').classList.toggle('off', !save.music);
   $('sfxBtn').classList.toggle('off', !save.sfx);
@@ -1737,7 +1870,7 @@ function updateScore(dt){
     if(Math.abs(score - shownScore) < 1) shownScore = score;
   }
   const v = Math.round(shownScore);
-  if(v !== lastShown){ $('scoreVal').textContent = v.toLocaleString('fr-FR'); if(v > lastShown && lastShown >= 0 && score - v > 50) bumpEl($('scoreVal')); lastShown = v; }
+  if(v !== lastShown){ $('scoreVal').textContent = v.toLocaleString(LOC); if(v > lastShown && lastShown >= 0 && score - v > 50) bumpEl($('scoreVal')); lastShown = v; }
 }
 
 /* ============================ INPUT (glisser-déposer) ============================ */
@@ -1824,6 +1957,7 @@ document.addEventListener('touchstart', ()=> Sound.init(), true);
 $('btnAdv').onclick = ()=>{ Sound.init(); startRun('adventure'); };
 $('btnClassic').onclick = ()=>{ Sound.init(); startRun('classic'); };
 $('btnDaily').onclick = ()=>{ Sound.init(); startRun('daily'); };
+$('btnLang').onclick = ()=>{ LANG = LANG === 'fr' ? 'en' : 'fr'; try { localStorage.setItem('bb_lang', LANG); } catch(e){} applyLang(); renderMenu(); updateHUD(); Sound.ui(); };
 $('goChestBtn').onclick = openChest;
 $('lcChestBtn').onclick = openChest;
 $('chIcon').onclick = ()=>{ if($('chIcon').classList.contains('shake')) vibrate(10); };
@@ -1838,19 +1972,19 @@ $('btnGuide').onclick = ()=> openSub('scr-guide');
 document.querySelectorAll('[data-back]').forEach(b => b.onclick = ()=>{ Sound.ui(); if(backTo === 'scr-menu') goMenu(); else showScreen(backTo); });
 $('musicBtn').onclick = ()=>{ Sound.init(); save.music = !save.music; Sound.setMusic(save.music); saveGame(); updateHUD(); };
 $('sfxBtn').onclick = ()=>{ Sound.init(); save.sfx = !save.sfx; Sound.setSfx(save.sfx); saveGame(); updateHUD(); Sound.ui(); };
-$('pauseBtn').onclick = ()=>{ if(currentScreen === 'game' && running){ Sound.ui(); showScreen('scr-pause'); Sound.musicDive(true); } };
+$('pauseBtn').onclick = ()=>{ if(currentScreen === 'game' && running){ Sound.ui(); showScreen('scr-pause'); Sound.musicDive(true); gpStop(); } };
 $('undoBtn').onclick = undo;
-$('pauseResume').onclick = ()=>{ Sound.ui(); Sound.musicDive(false); hideScreens(); };
+$('pauseResume').onclick = ()=>{ Sound.ui(); Sound.musicDive(false); hideScreens(); gpStart(); };
 $('pauseRetry').onclick = ()=> startRun();
 $('pauseMenu').onclick = goMenu;
 $('goAd').onclick = ()=> showAd('rewarded', continueRun);
-$('goRetry').onclick = ()=> startRun();
+$('goCoins').onclick = ()=>{ if(save.coins < 100){ toast(tr('Il faut 100 pièces')); return; } save.coins -= 100; updateCoinsText(); saveGame(); Sound.coin(); continueRun(); };
+$('goRetry').onclick = ()=> midgameThen(()=> startRun());
 $('goMenu').onclick = goMenu;
-$('lcNext').onclick = ()=> startRun('adventure');
+$('lcNext').onclick = ()=> midgameThen(()=> startRun('adventure'));
 $('lcMenu').onclick = goMenu;
-$('lcDouble').onclick = ()=> showAd('rewarded', ()=>{ $('lcDouble').style.display = 'none'; addCoins(lastLevelReward, VW/2, VH/2); $('lcReward').textContent = '+' + lastLevelReward*2; });
 document.addEventListener('visibilitychange', ()=>{
-  if(document.hidden){ Sound.suspend(); if(currentScreen === 'game' && running) showScreen('scr-pause'); }
+  if(document.hidden){ Sound.suspend(); if(currentScreen === 'game' && running){ showScreen('scr-pause'); gpStop(); } }
   else Sound.resume();
 });
 
@@ -1873,7 +2007,9 @@ function frame(now){
 let isDanger = false;
 
 /* ============================ INIT ============================ */
-function init(){
+async function init(){
+  await initPlatform();
+  applyLang();
   save = loadSave();
   Sound.setSfx(save.sfx); Sound.setMusic(save.music);
   refreshObjectives();
