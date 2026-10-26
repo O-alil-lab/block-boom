@@ -442,6 +442,8 @@ function applyLang(){
 }
 /* ---------- Plateforme : CrazyGames SDK v3 (si présent) ---------- */
 const CG = { sdk:null, on:false };
+const ADS_ENABLED = true;   // false pendant le « Basic Launch » CrazyGames (pubs interdites)
+const adsOn = () => ADS_ENABLED || !CG.on;
 async function initPlatform(){
   const sdk = window.CrazyGames && window.CrazyGames.SDK;
   if(!sdk) return;
@@ -1504,6 +1506,7 @@ function showGameOver(){
   $('goContRow').style.display = offer ? '' : 'none';
   $('goContHint').style.display = offer ? '' : 'none';
   $('goCoins').disabled = save.coins < 100;
+  $('goAd').style.display = adsOn() ? '' : 'none';
   showScreen('scr-gameover');
   showProgress($('goRank'), $('goChest'), $('goChestBtn'), xp);
   if(rec){ Sound.record(); fireworks(6); happy(); }
@@ -1697,6 +1700,7 @@ function showAd(kind, onDone, onFail){
 }
 // pub « entre deux parties » : seulement quand le joueur relance, après un vrai temps de jeu, max 1 toutes les 3 min
 function midgameThen(fn){
+  if(!adsOn()){ fn(); return; }
   const now = Date.now();
   if(runsThisSession >= 2 && now - lastMidgame > 180000){ lastMidgame = now; showAd('interstitial', fn); }
   else fn();
@@ -1800,6 +1804,7 @@ function renderShop(){
     }
     row.append(cv, info, btn); list.appendChild(row);
   });
+  if(!adsOn()) return;
   const left = adsLeftToday();
   const cooldown = Math.max(0, Math.ceil((180000 - (Date.now() - (save.lastShopAd || 0)))/60000));
   const row = document.createElement('div'); row.className = 'row';
