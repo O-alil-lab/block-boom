@@ -1238,6 +1238,7 @@ function genDock(){
 }
 
 function startRun(newMode){
+  if(!save) return;
   if(newMode) mode = newMode;
   prngFn = mode === 'daily' ? mulberry32(dailySeed()) : Math.random;
   if(mode === 'daily'){ dailyRef(); save.daily.tries++; }
@@ -1634,6 +1635,7 @@ function showStreak(){
   showScreen('scr-streak');
 }
 function claimStreak(){
+  if(!save) return;
   const s = save.streak, day = (s.count - 1) % 7;
   if(s.claimed) return;
   s.claimed = true;
@@ -1755,7 +1757,7 @@ function showScreen(id){
 }
 function hideScreens(){ showScreen(null); }
 let backTo = 'scr-menu';
-function openSub(id, render){ backTo = currentScreen === 'pause' ? 'scr-pause' : 'scr-menu'; if(render) render(); Sound.ui(); showScreen(id); }
+function openSub(id, render){ if(!save) return; backTo = currentScreen === 'pause' ? 'scr-pause' : 'scr-menu'; if(render) render(); Sound.ui(); showScreen(id); }
 function goMenu(){
   if(running) gpStop();
   running = false; locked = true; drag = null;
@@ -2008,7 +2010,10 @@ let isDanger = false;
 
 /* ============================ INIT ============================ */
 async function init(){
+  document.body.classList.add('adbusy');
+  try { cgCall(sdk => sdk.game.loadingStart()); } catch(e){}
   await initPlatform();
+  cgCall(sdk => sdk.game.loadingStart());
   applyLang();
   save = loadSave();
   Sound.setSfx(save.sfx); Sound.setMusic(save.music);
@@ -2023,6 +2028,8 @@ async function init(){
   dock = [makePiece('t4',0), makePiece('o2',0), makePiece('cL',0)]; refreshFits();
   updateHUD();
   requestAnimationFrame(frame);
+  cgCall(sdk => sdk.game.loadingStop());
+  document.body.classList.remove('adbusy');
 }
 init();
 // Hook de test
