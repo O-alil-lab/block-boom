@@ -2346,9 +2346,9 @@ async function init(){
   renderTeam();
   if((save.stats.games || 0) === 0){
     // première visite : on joue tout de suite, sans menu
+    cgCall(sdk => sdk.game.loadingStop());
     startRun('adventure');
     requestAnimationFrame(frame);
-    cgCall(sdk => sdk.game.loadingStop());
     document.body.classList.remove('adbusy');
     return;
   }
