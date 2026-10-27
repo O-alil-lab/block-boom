@@ -2053,8 +2053,20 @@ function checkObjectives(){
 
 /* ============================ SCREENS ============================ */
 const OVERLAYS = ['scr-menu','scr-shop','scr-obj','scr-rank','scr-stats','scr-guide','scr-gameover','scr-level','scr-pause','scr-ad','scr-streak','scr-chest'];
+// réduit une carte (menu, fin de partie…) pour qu'elle tienne sans défilement sur les petits écrans
+const FIT_CARDS = ['scr-menu','scr-level','scr-gameover','scr-streak','scr-chest','scr-pause'];
+function fitCard(id){
+  const ov = $(id); if(!ov || !FIT_CARDS.includes(id) || !ov.classList.contains('show')) return;
+  const c = ov.querySelector('.card'); if(!c) return;
+  c.style.zoom = ''; c.style.maxHeight = 'none'; c.style.flexShrink = '0';
+  const cs = getComputedStyle(ov); const avail = ov.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 8; if(avail <= 0) return;
+  let z = 1;
+  for(let k=0;k<6;k++){ const h = c.getBoundingClientRect().height; if(h <= avail + 0.5) break; z = Math.max(0.55, z*(avail-1)/h); c.style.zoom = z.toFixed(3); if(z === 0.55) break; }
+  if(c.getBoundingClientRect().height > avail + 0.5) c.style.maxHeight = Math.floor(avail / z) + 'px';
+}
 function showScreen(id){
   OVERLAYS.forEach(o => $(o).classList.toggle('show', o === id));
+  if(id) requestAnimationFrame(()=> fitCard(id));
   currentScreen = id ? id.replace('scr-','') : 'game';
   updateHUD();
 }
@@ -2340,8 +2352,8 @@ async function init(){
   Sound.setSfx(save.sfx); Sound.setMusic(save.music);
   refreshObjectives();
   layout(); initBg();
-  window.addEventListener('resize', ()=>{ layout(); });
-  if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>{ layout(); });
+  window.addEventListener('resize', ()=>{ layout(); if(currentScreen !== 'game') fitCard('scr-' + currentScreen); });
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>{ layout(); if(currentScreen !== 'game') fitCard('scr-' + currentScreen); });
   if(!Array.isArray(save.team) || !save.team.length) save.team = STARTERS.slice();
   renderTeam();
   if((save.stats.games || 0) === 0){
