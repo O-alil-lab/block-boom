@@ -10,6 +10,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<!-- CrazyGames SDK v3 : obligatoire sur CrazyGames (pubs, gameplayStart/Stop, sauvegarde cloud, son).
+     Hors CrazyGames (GitHub Pages…) l'environnement est « disabled » et le jeu reste en mode démo. -->
+<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
 <style>
 :root{color-scheme:dark;
   --bg:#0b0e22;--panel:#1a2046;--panel2:#232a58;--line:#36408a;--txt:#f1f3ff;--muted:#a3abd6;
@@ -398,7 +401,10 @@ body.landscape .card{padding:14px 16px;gap:8px}
 <div id="toast"></div>
 
 <script>
+// outils de développement (boîte d'erreur, hook de test) : seulement en local ou avec ?debug dans l'adresse
+window.__BB_DEBUG = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) || /[?&]debug\b/.test(location.search);
 window.addEventListener('error', function(e){
+  if(!window.__BB_DEBUG){ try { console.error(e.error || e.message); } catch(_){} return; }
   var d = document.getElementById('errBox');
   if(!d){ d = document.createElement('div'); d.id = 'errBox';
     d.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:999;background:#ff5d6c;color:#fff;font:14px sans-serif;padding:10px;border-radius:10px';
@@ -437,7 +443,7 @@ const EN = {
  '▶ Niveau suivant':'▶ Next level','⏸ Pause':'⏸ Paused','▶ Reprendre':'▶ Resume','🔄 Recommencer':'🔄 Restart',
  '🏠 Menu principal':'🏠 Main menu','Série :':'Streak:','jour':'day',
  'Reviens chaque jour, les cadeaux grossissent. Si tu rates un jour, la série repart à zéro !':'Come back every day for bigger gifts. Miss a day and your streak resets!',
- 'Récupérer':'Claim','Coffre mystère':'Mystery chest','Chances : Commun 60 % · Rare 28 % · Épique 10 % · Légendaire 2 %':'Odds: Common 60% · Rare 28% · Epic 10% · Legendary 2%',
+ 'Récupérer':'Claim','Coffre mystère':'Mystery chest',
  'Génial !':'Awesome!','PUB · DÉMO':'AD · DEMO','Produit':'Product','Regarder…':'Watching…','Démo hors CrazyGames : aucune vraie pub ici':'Demo outside CrazyGames: no real ad here',
  'Super !':'Nice!','Incroyable !':'Amazing!','LÉGENDAIRE !':'LEGENDARY!','DIVIN !!':'GODLIKE!!','GRILLE PARFAITE !':'PERFECT CLEAR!',
  'NOUVEAU RECORD !':'NEW RECORD!','BOUM !':'BOOM!','Fever terminé — enchaîne pour le relancer !':'Fever over — chain clears to start it again!',
@@ -521,13 +527,16 @@ function applyLang(){
 }
 /* ---------- Plateforme : CrazyGames SDK v3 (si présent) ---------- */
 const CG = { sdk:null, on:false };
-const ADS_ENABLED = true;   // false pendant le « Basic Launch » CrazyGames (pubs interdites)
+const ADS_ENABLED = false;  // false pendant le « Basic Launch » CrazyGames (pubs interdites) → true au Full Launch
 const adsOn = () => ADS_ENABLED || !CG.on;
 async function initPlatform(){
   const sdk = window.CrazyGames && window.CrazyGames.SDK;
   if(!sdk) return;
   try {
     await Promise.race([sdk.init(), new Promise((_, rej)=> setTimeout(()=> rej(new Error('timeout')), 5000))]);
+    // hors CrazyGames l'environnement est « disabled » : tous les appels SDK lèveraient une erreur
+    const env = sdk.environment;
+    if(env !== 'crazygames' && env !== 'local') return;
     CG.sdk = sdk; CG.on = true; window.__cgOn = true;
   } catch(e){ CG.on = false; }
 }
@@ -544,7 +553,7 @@ let prngFn = Math.random;
 const prng = () => prngFn();
 const prand = n => Math.floor(prngFn()*n);
 function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-function dailySeed(){ let h = 2166136261; for(const ch of 'bb-' + todayStr()){ h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function dailySeed(){ let h = 2166136261; for(const ch of 'bb-' + utcDayStr()){ h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 const easeOutBack = t => { const c1 = 1.70158, c3 = c1+1; return 1 + c3*Math.pow(t-1,3) + c1*Math.pow(t-1,2); };
 const easeOutCubic = t => 1 - Math.pow(1-t,3);
 function vibrate(p){ try { if(navigator.vibrate) navigator.vibrate(p); } catch(e){} }
@@ -642,6 +651,7 @@ let history = [], freeUndo = 1, continued = false, locked = true, running = fals
 let currentScreen = 'menu', prevScreen = 'menu';
 let dying = [], drag = null, returning = [], grayStart = 0, placedThisRun = 0;
 let pendingCoins = 0, lastLevelReward = 0, recordBeatenShown = false;
+let runRecord = null, runXpGiven = 0, runChestBumped = false;   // une partie (même continuée) = 1 record, 1 XP, 1 cran de coffre
 let toastTimer = null, adTimer = null;
 
 function freshSave(){
@@ -664,15 +674,29 @@ function loadSave(){
       }
     } catch(e){}
   }
+  // sauvegarde abîmée (édition à la main, ancienne version…) : on répare au lieu de planter à chaque lancement
+  const isObj = o => o !== null && typeof o === 'object' && !Array.isArray(o);
+  if(!isObj(s)) s = freshSave();
   const f = freshSave();
-  for(const k in f) if(s[k] === undefined) s[k] = f[k];
-  for(const k in f.stats) if(s.stats[k] === undefined) s.stats[k] = 0;
+  for(const k in f) if(s[k] === undefined || (isObj(f[k]) && !isObj(s[k]) && f[k] !== null)) s[k] = f[k];
+  if(!isObj(s.stats)) s.stats = f.stats;
+  for(const k in f.stats) if(typeof s.stats[k] !== 'number' || !isFinite(s.stats[k])) s.stats[k] = 0;
+  ['coins','level','best','xp','chest'].forEach(k => { if(typeof s[k] !== 'number' || !isFinite(s[k]) || s[k] < 0) s[k] = f[k]; });
+  s.level = Math.max(1, Math.floor(s.level));
+  if(!Array.isArray(s.records)) s.records = [];
+  s.records = s.records.filter(r => isObj(r) && typeof r.s === 'number' && typeof r.d === 'string');
+  if(!Array.isArray(s.team)) s.team = f.team.slice();
+  if(!isObj(s.mons)) s.mons = f.mons;
+  if(s.obj && !(isObj(s.obj) && Array.isArray(s.obj.items) && isObj(s.obj.base))) s.obj = null;
+  if(!isObj(s.adDay)) s.adDay = f.adDay;
   if(!SKINS[s.skin]) s.skin = 'classic';
   s.skins.classic = true;
   return s;
 }
 function saveGame(){ LS.set('bb_save_v2', JSON.stringify(save)); }
 function todayStr(){ const d = new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+// Défi du jour : date UTC → vraiment les mêmes pièces au même moment pour tous les joueurs du monde
+function utcDayStr(){ const d = new Date(); return d.getUTCFullYear()+'-'+(d.getUTCMonth()+1)+'-'+d.getUTCDate(); }
 
 /* ============================ AUDIO ============================ */
 const Sound = (function(){
@@ -1020,7 +1044,7 @@ function drawSpec(c, sp, x, y, size, now, scale){
 /* ============================ FX (particles, text, coins) ============================ */
 const P = [];
 const MAX_P = 700;
-function addP(p){ if(P.length < MAX_P) P.push(p); }
+function addP(p){ if(P.length < MAX_P){ P.push(p); return true; } return false; }
 function shards(x, y, hex, n, power){
   power = power || 1;
   for(let i=0;i<n;i++){
@@ -1045,8 +1069,9 @@ function floatText(txt, x, y, o){
 function flyCoins(x, y, amount){
   const n = Math.min(amount, 10), per = amount / n;
   for(let i=0;i<n;i++){
-    addP({ k:'coin', x0:x + (Math.random()-0.5)*20, y0:y + (Math.random()-0.5)*20, x:x, y:y, life:0, max:0.65 + i*0.05, delay:i*0.04,
+    const ok = addP({ k:'coin', x0:x + (Math.random()-0.5)*20, y0:y + (Math.random()-0.5)*20, x:x, y:y, life:0, max:0.65 + i*0.05, delay:i*0.04,
       cx:x + (Math.random()-0.5)*160, cy:y - 80 - Math.random()*120, val:per });
+    if(!ok) pendingCoins = Math.max(0, pendingCoins - per);   // particule refusée (plafond) : la pièce est créditée tout de suite
   }
 }
 let shakeAmt = 0, flashA = 0;
@@ -1362,6 +1387,8 @@ function startRun(newMode){
   if(fever) endFever(true);
   history = []; freeUndo = 1; continued = false; grayStart = 0; placedThisRun = 0;
   dying = []; drag = null; returning = []; P.length = 0; recordBeatenShown = false;
+  pendingCoins = 0;   // les pièces encore en vol ont été effacées : sinon le compteur resterait faux pour toujours
+  runRecord = null; runXpGiven = 0; runChestBumped = false;
   target = mode === 'adventure' ? Math.min(3 + Math.floor((save.level - 1)*0.7), 25) : 0;
   if(mode === 'adventure' && save.level >= 2) prefill(save.level);
   runToken++; powerBusy = false; teamCharge = [0,0,0]; wildName = mode === 'adventure' ? wildFor(save.level) : null;
@@ -1403,7 +1430,11 @@ function prefill(level){
 }
 
 function snapshot(){
-  return { grid:grid.slice(), spec:spec.slice(), dock:dock.map(clonePiece), score, lines, combo, movesNoClear, fever, charge:teamCharge.slice() };
+  // pièces, statistiques et défis du jour sont aussi mémorisés : annuler un coup annule ce qu'il a rapporté
+  const st = save.stats, o = save.obj;
+  return { grid:grid.slice(), spec:spec.slice(), dock:dock.map(clonePiece), score, lines, combo, movesNoClear, fever, charge:teamCharge.slice(),
+    coins:save.coins, stats:{ blocks:st.blocks, lines:st.lines, gems:st.gems, bombs:st.bombs, perfects:st.perfects, coinsEarned:st.coinsEarned },
+    obj:o ? { date:o.date, done:o.items.map(i=>i.done), bonus:o.bonus } : null };
 }
 function placePiece(idx, r, c){
   const p = dock[idx];
@@ -1480,7 +1511,7 @@ function placePiece(idx, r, c){
       }, 380);
     }
     addCoins(coins, ox, oy);
-    if(combo >= 5 && !fever) setTimeout(startFever, 350);
+    if(combo >= 5 && !fever) setTimeout(()=>{ if(combo >= 5) startFever(); }, 350);   // pas de FEVER si le coup a été annulé entre-temps
   } else {
     movesNoClear++;
     if(combo > 0 && movesNoClear >= 3){
@@ -1502,12 +1533,14 @@ function placePiece(idx, r, c){
 
   if(mode === 'adventure' && lines >= target){
     locked = true;
-    setTimeout(levelComplete, 750);
+    afterRun(levelComplete, 750);
   } else if(!anyFits()){
     if(teamReady()){ hintPower(true); }
-    else { locked = true; setTimeout(triggerGameOver, 450); }
+    else { locked = true; afterRun(triggerGameOver, 450); }
   }
 }
+// fin de partie différée : ignorée si le joueur a quitté/relancé entre-temps (sinon elle terminerait la partie suivante)
+function afterRun(fn, ms){ const tok = runToken; setTimeout(()=>{ if(tok === runToken) fn(); }, ms); }
 /* explose un ensemble de cellules (avec réaction en chaîne des bombes) */
 function explode(delays, now){
   const queue = [], done = new Set();
@@ -1569,11 +1602,16 @@ function undo(){
   if(currentScreen !== 'game' || locked || drag) return;
   if(mode === 'daily'){ toast(tr('Pas d’annulation dans le Défi du jour : même règle pour tous')); Sound.invalid(); return; }
   if(!history.length){ toast(tr('Rien à annuler')); return; }
-  if(freeUndo <= 0){
-    if(save.coins < 20){ toast(tr('Il faut 20 pièces pour annuler')); Sound.invalid(); return; }
-    save.coins -= 20; updateCoinsText();
-  } else freeUndo--;
-  const s = history.pop();
+  const s = history[history.length - 1];
+  const cost = freeUndo > 0 ? 0 : 20;
+  // le coût se paie sur le solde d'avant le coup (les pièces gagnées par ce coup sont rendues)
+  if(cost && s.coins < cost){ toast(tr('Il faut 20 pièces pour annuler')); Sound.invalid(); return; }
+  history.pop();
+  if(cost) save.coins = s.coins - cost; else { save.coins = s.coins; freeUndo--; }
+  Object.assign(save.stats, s.stats);
+  if(s.obj && save.obj && save.obj.date === s.obj.date){ save.obj.items.forEach((it,k)=> it.done = s.obj.done[k]); save.obj.bonus = s.obj.bonus; }
+  pendingCoins = 0; for(let i=P.length-1;i>=0;i--) if(P[i].k === 'coin') P.splice(i,1);
+  updateCoinsText();
   grid.set(s.grid); spec.set(s.spec); dock = s.dock.map(clonePiece);
   score = s.score; shownScore = score; lines = s.lines; combo = s.combo; movesNoClear = s.movesNoClear;
   if(s.charge) teamCharge = s.charge.slice(); updateTeamUI();
@@ -1597,13 +1635,15 @@ function showGameOver(){
   if(isClassic){
     prevBest = save.best; rec = score > save.best && save.best > 0;
     save.best = Math.max(save.best, score);
-    save.records.push({ s:score, d:todayStr() });
+    // après « Continuer », la même partie met à jour son record au lieu d'en ajouter un deuxième
+    if(runRecord && save.records.includes(runRecord)) runRecord.s = score;
+    else { runRecord = { s:score, d:todayStr() }; save.records.push(runRecord); }
     save.records.sort((a,b)=>b.s - a.s); save.records = save.records.slice(0, 5);
   }
   if(isDaily){ dailyRef(); prevBest = save.daily.best; rec = score > prevBest && prevBest > 0; save.daily.best = Math.max(prevBest, score); }
   checkObjectives();
   const xp = gainXp();
-  bumpChest();
+  if(!runChestBumped){ runChestBumped = true; bumpChest(); }
   saveGame();
   $('goTitle').textContent = tr(isDaily ? 'Défi du jour terminé' : isClassic ? 'Partie terminée' : 'Plus de place !');
   $('goScore').textContent = score.toLocaleString(LOC);
@@ -1846,9 +1886,9 @@ function applyPower(e){
     powerBusy = false;
     if(tok !== runToken || !running) return;
     refreshFits(); checkObjectives(); saveGame(); updateHUD(); updateTeamUI();
-    if(mode === 'adventure' && lines >= target){ setTimeout(levelComplete, 500); return; }
+    if(mode === 'adventure' && lines >= target){ afterRun(levelComplete, 500); return; }
     locked = false;
-    if(!anyFits()){ if(teamReady()) hintPower(true); else { locked = true; setTimeout(triggerGameOver, 400); } }
+    if(!anyFits()){ if(teamReady()) hintPower(true); else { locked = true; afterRun(triggerGameOver, 400); } }
   }, 560);
 }
 function makePieceRnd(key){ const old = prngFn; prngFn = Math.random; const p = makePiece(key); prngFn = old; return p; }
@@ -1865,7 +1905,10 @@ function renderRankBox(el, xp, extra){
     '</div><div class="xpbar"><i style="width:' + rankPct(xp) + '%"></i></div><div class="rankMeta">' + rankMeta(xp) + '</div></div>';
 }
 function gainXp(){
-  const before = save.xp || 0, g = Math.max(5, Math.round(score/60) + lines*3 + runMaxCombo*5);
+  // XP de la partie entière ; après « Continuer » on ne donne que la différence (pas de double comptage)
+  const total = Math.max(5, Math.round(score/60) + lines*3 + runMaxCombo*5);
+  const before = save.xp || 0, g = Math.max(0, total - runXpGiven);
+  runXpGiven += g;
   save.xp = before + g;
   return { before, after:save.xp, gain:g };
 }
@@ -1906,11 +1949,11 @@ function openChest(){
     clearInterval(iv); $('chIcon').classList.remove('shake');
     const r = Math.random();
     let tier, color, icon, coins = 0, text = '';
-    const locked = SKIN_ORDER.filter(k => !save.skins[k]);
-    if(r < 0.04){ tier = 'LÉGENDAIRE'; color = '#ffd75e'; icon = '👑';
+    if(r < 0.04){ tier = 'LÉGENDAIRE'; color = '#ffd75e';
       const f = befriendMon(randomMon()); icon = '<img src="' + MON_IMG[f.name] + '">';
       text = f.isNew ? tr('{m} rejoint tes compagnons !', { m:f.name }) : tr('{m} gagne de l’expérience (niv. {l})', { m:f.name, l:monLevel(f.name) });
-    } else if(r < 0.12){ tier = 'ÉPIQUE'; color = '#c1b5ff'; icon = '💎'; coins = 150 + rand(101); }
+    // chances affichées = chances réelles : Légendaire 4 · Épique 10 · Rare 26 · Commun 60
+    } else if(r < 0.14){ tier = 'ÉPIQUE'; color = '#c1b5ff'; icon = '💎'; coins = 150 + rand(101); }
     else if(r < 0.40){ tier = 'RARE'; color = '#7fe8ff'; icon = '💰'; coins = 60 + rand(41); }
     else { tier = 'COMMUN'; color = '#e6e9ff'; icon = '🪙'; coins = 20 + rand(21); }
     $('chIcon').innerHTML = icon; $('chTier').textContent = tr(tier); $('chTier').style.color = color;
@@ -1946,12 +1989,12 @@ function claimStreak(){
   saveGame();
   setTimeout(()=>{ renderMenu(); showScreen('scr-menu'); }, 500);
 }
-function dailyRef(){ if(!save.daily || save.daily.d !== todayStr()) save.daily = { d:todayStr(), best:0, tries:0 }; }
+function dailyRef(){ if(!save.daily || save.daily.d !== utcDayStr()) save.daily = { d:utcDayStr(), best:0, tries:0 }; }
 function shareScore(){
   const d = new Date();
   const url = CG.on ? (/crazygames/.test(document.referrer) ? document.referrer : '') : 'https://o-alil-lab.github.io/block-boom/';
   const en = LANG === 'en';
-  const head = mode === 'daily' ? (en ? '📅 Block Boom — Daily ' : '📅 Block Boom — Défi du ') + d.getDate() + '/' + (d.getMonth()+1) : '🧱 Block Boom';
+  const head = mode === 'daily' ? (en ? '📅 Block Boom — Daily ' : '📅 Block Boom — Défi du ') + d.getUTCDate() + '/' + (d.getUTCMonth()+1) : '🧱 Block Boom';
   const txt = head + '\n🏆 ' + fmt(score) + ' pts · 🔥 combo ×' + runMaxCombo + ' · 💥 ' + lines + (en ? ' lines\n' : ' lignes\n') +
     (mode === 'daily' ? (en ? 'Same pieces for everyone. Can you beat me?' : 'Mêmes pièces pour tout le monde. Tu fais mieux ?') : (en ? 'Beat my score!' : 'Bats mon score !')) + (url ? ' 👉 ' + url : '');
   if(navigator.share){ navigator.share({ text:txt }).catch(()=>{}); return; }
@@ -1972,12 +2015,20 @@ function showAd(kind, onDone, onFail){
   if(CG.on){
     const type = kind === 'interstitial' ? 'midgame' : 'rewarded';
     gpStop(); document.body.classList.add('adbusy');
-    const end = ()=>{ Sound.mute(false); document.body.classList.remove('adbusy'); };
-    CG.sdk.ad.requestAd(type, {
-      adStarted: ()=> Sound.mute(true),
-      adFinished: ()=>{ end(); save.stats.ads++; saveGame(); if(onDone) onDone(); },
-      adError: ()=>{ end(); if(kind === 'interstitial'){ if(onDone) onDone(); } else { toast(tr('Aucune pub disponible pour le moment')); if(onFail) onFail(); } }
-    });
+    // garde-fou : le voile anti-clic (adbusy) doit TOUJOURS être retiré, même si le SDK ne rappelle jamais
+    let settled = false, started = false, wd = null;
+    const end = ()=>{ clearTimeout(wd); Sound.mute(false); document.body.classList.remove('adbusy'); };
+    const ok = ()=>{ if(settled) return; settled = true; end(); save.stats.ads++; saveGame(); if(onDone) onDone(); };
+    const fail = ()=>{ if(settled) return; settled = true; end();
+      if(kind === 'interstitial'){ if(onDone) onDone(); } else { toast(tr('Aucune pub disponible pour le moment')); if(onFail) onFail(); } };
+    wd = setTimeout(()=>{ if(!started) fail(); }, 8000);   // pas de début de pub en 8 s → on abandonne
+    try {
+      CG.sdk.ad.requestAd(type, {
+        adStarted: ()=>{ started = true; clearTimeout(wd); wd = setTimeout(fail, 120000); Sound.mute(true); },
+        adFinished: ok,
+        adError: fail
+      });
+    } catch(e){ fail(); }
     return;
   }
   prevScreen = currentScreen;
@@ -2300,7 +2351,7 @@ $('btnGuide').onclick = ()=> openSub('scr-guide');
 document.querySelectorAll('[data-back]').forEach(b => b.onclick = ()=>{ Sound.ui(); if(backTo === 'scr-menu') goMenu(); else showScreen(backTo); });
 $('musicBtn').onclick = ()=>{ Sound.init(); save.music = !save.music; Sound.setMusic(save.music); saveGame(); updateHUD(); };
 $('sfxBtn').onclick = ()=>{ Sound.init(); save.sfx = !save.sfx; Sound.setSfx(save.sfx); saveGame(); updateHUD(); Sound.ui(); };
-$('pauseBtn').onclick = ()=>{ if(currentScreen === 'game' && running && !powerBusy){ Sound.ui(); showScreen('scr-pause'); Sound.musicDive(true); gpStop(); } };
+$('pauseBtn').onclick = ()=>{ if(currentScreen === 'game' && running && !powerBusy && !locked){ Sound.ui(); showScreen('scr-pause'); Sound.musicDive(true); gpStop(); } };
 $('undoBtn').onclick = undo;
 $('pauseResume').onclick = ()=>{ Sound.ui(); Sound.musicDive(false); hideScreens(); gpStart(); };
 $('pauseRetry').onclick = ()=> startRun();
@@ -2313,12 +2364,14 @@ $('lcNext').onclick = ()=> midgameThen(()=> startRun('adventure'));
 $('lcMenu').onclick = goMenu;
 $('lcTeam').onclick = ()=>{ save.monSeen = true; openSub('scr-shop', renderShop); backTo = 'scr-level'; };
 document.addEventListener('visibilitychange', ()=>{
-  if(document.hidden){ Sound.suspend(); if(currentScreen === 'game' && running){ showScreen('scr-pause'); gpStop(); } }
+  if(document.hidden){ Sound.suspend(); if(currentScreen === 'game' && running && !locked){ showScreen('scr-pause'); gpStop(); } }
   else Sound.resume();
 });
 
 /* ============================ LOOP ============================ */
 let lastT = performance.now();
+let loopOn = false;
+function startLoop(){ if(loopOn) return; loopOn = true; requestAnimationFrame(frame); }
 function frame(now){
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (now - lastT)/1000); lastT = now;
@@ -2338,7 +2391,6 @@ let isDanger = false;
 /* ============================ INIT ============================ */
 async function init(){
   document.body.classList.add('adbusy');
-  try { cgCall(sdk => sdk.game.loadingStart()); } catch(e){}
   await initPlatform();
   // CrazyGames : respecter le bouton « couper le son » de la plateforme
   cgCall(sdk => {
@@ -2360,7 +2412,7 @@ async function init(){
     // première visite : on joue tout de suite, sans menu
     cgCall(sdk => sdk.game.loadingStop());
     startRun('adventure');
-    requestAnimationFrame(frame);
+    startLoop();
     document.body.classList.remove('adbusy');
     return;
   }
@@ -2370,13 +2422,17 @@ async function init(){
   [[7,0],[7,1],[7,2],[6,0],[7,5],[7,6],[7,7],[6,7],[5,7]].forEach(([r,c],k)=>{ grid[r*N + c] = (k % 6) + 1; });
   dock = [makePiece('t4',0), makePiece('o2',0), makePiece('cL',0)]; refreshFits();
   updateHUD();
-  requestAnimationFrame(frame);
+  startLoop();
   cgCall(sdk => sdk.game.loadingStop());
   document.body.classList.remove('adbusy');
 }
-init();
-// Hook de test
-window.__bb = { get grid(){ return grid; }, get dock(){ return dock; }, get score(){ return score; }, get lines(){ return lines; }, get combo(){ return combo; },
+init().catch(e => { try { console.error(e); } catch(_){} }).finally(()=>{
+  // quoi qu'il arrive au démarrage, ne jamais laisser le voile anti-clic en place
+  document.body.classList.remove('adbusy');
+  startLoop();
+});
+// Hook de test (local / ?debug uniquement — pas de triche depuis la console en production)
+if(window.__BB_DEBUG) window.__bb = { get grid(){ return grid; }, get dock(){ return dock; }, get score(){ return score; }, get lines(){ return lines; }, get combo(){ return combo; },
   get fever(){ return fever; }, get screen(){ return currentScreen; }, get P(){ return P.length; }, setCell(i,v,s){ grid[i] = v; spec[i] = s||0; refreshFits(); },
   setDock(i,key,rot,s){ dock[i] = makePiece(key, rot); if(s) dock[i].spec = s; refreshFits(); }, startFever, save:()=>save, usePower, setCharge:(k,v)=>{ teamCharge[k]=v; updateTeamUI(); }, get charge(){ return teamCharge; }, get wild(){ return wildName; } };
 </script>
