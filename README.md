@@ -1,12 +1,14 @@
-# BLOCK BOOM — v2
+# BLOCK BOOM — édition Lanternbound
 
-Puzzle de blocs hybrid-casual (style Block Blast), un seul fichier `index.html`, zéro dépendance
-(seule la police Fredoka vient de Google Fonts, avec repli système).
+Puzzle de blocs hybrid-casual (style Block Blast) avec des compagnons à apprivoiser. Un seul fichier `index.html`,
+zéro dépendance (police Fredoka via Google Fonts avec repli système, SDK CrazyGames v3).
 
 ## Lancer
 ```bash
 python3 -m http.server 8000   # puis http://localhost:8000
 ```
+En local (ou avec `?debug` dans l'adresse) : boîte d'erreur visible et hook de test `window.__bb`.
+En production ces outils sont désactivés.
 
 ## Gameplay
 - Grille **8×8**, **glisser-déposer** (la pièce flotte au-dessus du doigt pour rester visible)
@@ -19,11 +21,18 @@ python3 -m http.server 8000   # puis http://localhost:8000
 - Génération de pièces « juste » : au moins une pièce posable, pièce de secours quand la grille est pleine
 - Modes **Aventure** (objectif de lignes, blocs de pierre et gemmes pré-placés) et **Classique** (score infini + records)
 
+## Compagnons (Lanternbound)
+- 18 créatures, 6 éléments (Sylve, Marée, Braise, Rafale, Roche, Lueur) ; chaque couleur de bloc = un élément
+- Équipe de 3 : leur lanterne se charge quand tu fais exploser des blocs de leur élément ; touche-les pour lancer leur pouvoir
+- Pouvoirs : Floraison, Raz-de-marée, Brasier, Vent arrière, Séisme, Prisme
+- Chaque niveau Aventure réussi apprivoise une créature sauvage ; **Lanterne de cristal** (300 pièces) = créature au hasard
+- Les doublons donnent de l'expérience (niveau max 6 : la lanterne se charge plus vite)
+
 ## Rétention (v3)
 - **Rangs** Bois → Bronze → Argent → Or → Platine → Diamant → Maître → Légende, barre d'XP animée après chaque partie
-- **Coffre mystère** toutes les 3 parties (chances affichées : 60 / 28 / 10 / 2 %)
+- **Coffre mystère** toutes les 3 parties — chances affichées = chances réelles : Commun 60 % · Rare 26 % · Épique 10 % · Légendaire (créature) 4 %
 - **Série quotidienne** sur 7 jours (20 → 300 pièces), remise à zéro si un jour est manqué
-- **Défi du jour** : graine fixe, mêmes pièces pour tous, pas d'annulation ni de relance, bouton « Défier mes amis »
+- **Défi du jour** : graine fixe basée sur la date **UTC** (mêmes pièces pour tous, partout dans le monde), pas d'annulation ni de relance, bouton « Défier mes amis »
 - **Presque !** : la case qui manque pour finir une ligne clignote en doré
 - **Danger** : grille pleine à 66 % → battements de cœur + bord rouge
 - **Objectif visible** : barre vers le record pendant la partie, « Plus que X pts » à la fin
@@ -48,5 +57,19 @@ python3 -m http.server 8000   # puis http://localhost:8000
 - Faux classement remplacé par tes vrais records
 - Fautes « DÉBLOCÉ », « effacéées »
 
-## Pubs
-Toujours des démos : remplacer `showAd(kind, onDone)` / `closeAd()` par AppLovin MAX ou AdMob.
+## CrazyGames & pubs
+- Le SDK v3 est chargé dans `<head>` ; il n'est activé que si `SDK.environment` vaut `crazygames` (ou `local`).
+  Ailleurs (GitHub Pages) le jeu reste en mode démo.
+- `ADS_ENABLED = false` pendant le **Basic Launch** (pubs interdites sur CrazyGames). Passer à `true` au Full Launch.
+- Hors CrazyGames, les pubs sont des démos (`showAd` / `closeAd`).
+- Garde-fou : si une pub ne démarre pas en 8 s (ou ne se termine jamais), le jeu se débloque tout seul.
+
+## Corrections (audit Claude Code Game Studios, oct. 2026)
+- SDK CrazyGames jamais chargé → fausses pubs démo, pas de gameplayStart/Stop ni de sauvegarde cloud sur CrazyGames
+- Chances du coffre affichées ≠ réelles (Épique 8 % au lieu de 10 %)
+- Une fin de niveau / de partie différée pouvait terminer la partie suivante (Pause → Menu pendant l'animation)
+- « Continuer » comptait la partie deux fois (2 records, XP et coffre doublés)
+- Compteur de pièces faux si on relançait pendant que les pièces volaient encore
+- Annuler ne rendait pas les pièces / la progression des défis gagnées par le coup (petite triche possible)
+- Sauvegarde abîmée → plantage à chaque lancement ; maintenant réparée au chargement
+- Hook de test `window.__bb` et boîte d'erreur retirés de la version publique
